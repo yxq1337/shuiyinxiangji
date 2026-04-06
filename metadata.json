@@ -1,0 +1,5 @@
+{
+  "name": "自定义水印相机",
+  "description": "自定义修改水印时间、地点、天气等信息的水印相机工具",
+  "requestFramePermissions": []
+}
