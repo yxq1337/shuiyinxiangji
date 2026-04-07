@@ -45,6 +45,10 @@ export default function AdminDashboard() {
           fetch(`/api/admin/users?t=${timestamp}`)
         ]);
         
+        if (!statsRes.ok || !paymentsRes.ok || !settingsRes.ok || !usersRes.ok) {
+          throw new Error('API not available');
+        }
+        
         const statsData = await statsRes.json();
         const paymentsData = await paymentsRes.json();
         const settingsData = await settingsRes.json();
@@ -64,7 +68,21 @@ export default function AdminDashboard() {
           wechatQrCode: settingsData.wechatQrCode || prev.wechatQrCode
         }));
       } catch (error) {
-        console.error("Failed to fetch admin data", error);
+        console.warn("Backend API not available, falling back to local storage", error);
+        // Fallback for static hosting (like Netlify)
+        const localUsers = JSON.parse(localStorage.getItem('mock_users') || '[]');
+        setUsers(localUsers);
+        
+        // Mock stats based on local users
+        const activeVips = localUsers.filter((u: any) => u.isVip && new Date(u.vipExpiresAt).getTime() > Date.now()).length;
+        setStats({
+          totalRevenue: '0.00',
+          totalOrders: 0,
+          monthlyOrders: 0,
+          singleOrders: 0,
+          totalUsers: localUsers.length,
+          activeVips: activeVips
+        } as any);
       } finally {
         setLoading(false);
       }
@@ -80,16 +98,19 @@ export default function AdminDashboard() {
   const handleSaveSettings = async () => {
     setSaving(true);
     try {
-      await fetch('/api/settings', {
+      const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
       });
+      if (!res.ok) throw new Error('API not available');
       setSaveMessage('保存成功');
       setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
-      console.error("Failed to save settings", error);
-      setSaveMessage('保存失败');
+      console.warn("Backend API not available, saving to local storage", error);
+      localStorage.setItem('mock_settings', JSON.stringify(settings));
+      setSaveMessage('保存成功 (本地)');
+      setTimeout(() => setSaveMessage(''), 3000);
     } finally {
       setSaving(false);
     }
