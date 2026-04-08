@@ -4,13 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Download, Image as ImageIcon, X, CheckCircle2, QrCode, Crown, User, LogOut } from 'lucide-react';
-
-interface UserData {
-  phone: string;
-  isVip: boolean;
-  vipExpiresAt: string | null;
-}
+import { Upload, Download, Image as ImageIcon } from 'lucide-react';
 
 export default function App() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -24,40 +18,6 @@ export default function App() {
   const [location, setLocation] = useState('嘉兴市南湖区建设街道·南杨新村');
   const [securityCode, setSecurityCode] = useState('KDRDCUU93S444');
   
-  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
-  const [showLogin, setShowLogin] = useState(false);
-  const [phoneInput, setPhoneInput] = useState('');
-  
-  const [showPayment, setShowPayment] = useState(false);
-  const [paymentType, setPaymentType] = useState<'single' | 'monthly'>('single');
-  const [paymentMethod, setPaymentMethod] = useState<'wechat' | 'alipay'>('wechat');
-  const [appSettings, setAppSettings] = useState({ singlePrice: 1.99, monthlyPrice: 9.90, wechatQrCode: '', alipayQrCode: '' });
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const res = await fetch(`/api/settings?t=${Date.now()}`);
-        if (!res.ok) throw new Error('API not available');
-        const data = await res.json();
-        setAppSettings(data);
-      } catch (err) {
-        console.warn("Backend API not available, loading settings from local storage", err);
-        const localSettings = localStorage.getItem('mock_settings');
-        if (localSettings) {
-          setAppSettings(JSON.parse(localSettings));
-        }
-      }
-    };
-
-    // Fetch initially
-    fetchSettings();
-
-    // Fetch again when payment modal is shown
-    if (showPayment) {
-      fetchSettings();
-    }
-  }, [showPayment]);
-
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -199,60 +159,7 @@ export default function App() {
     }
   }, [imageObj, time, date, day, weather, temperature, location, securityCode]);
 
-  const handleLogin = async () => {
-    if (!/^1[3-9]\d{9}$/.test(phoneInput)) {
-      alert('请输入正确的11位手机号码');
-      return;
-    }
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phoneInput })
-      });
-      if (!res.ok) throw new Error('API not available');
-      const data = await res.json();
-      if (data.success) {
-        setCurrentUser(data.user);
-        setShowLogin(false);
-      }
-    } catch (error) {
-      console.warn("Backend API not available, falling back to local storage", error);
-      // Fallback for static hosting (like Netlify)
-      const mockUser = {
-        id: 'u' + Date.now(),
-        phone: phoneInput,
-        isVip: false,
-        vipExpiresAt: null,
-        createdAt: new Date().toISOString()
-      };
-      
-      // Save to local storage to simulate backend
-      const localUsers = JSON.parse(localStorage.getItem('mock_users') || '[]');
-      const existingUser = localUsers.find((u: any) => u.phone === phoneInput);
-      
-      if (existingUser) {
-        setCurrentUser(existingUser);
-      } else {
-        localUsers.push(mockUser);
-        localStorage.setItem('mock_users', JSON.stringify(localUsers));
-        setCurrentUser(mockUser);
-      }
-      setShowLogin(false);
-    }
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-  };
-
-  const isVipValid = () => {
-    if (!currentUser || !currentUser.isVip) return false;
-    if (!currentUser.vipExpiresAt) return false;
-    return new Date(currentUser.vipExpiresAt).getTime() > Date.now();
-  };
-
-  const downloadCanvas = () => {
+  const handleDownload = () => {
     if (canvasRef.current) {
       const link = document.createElement('a');
       link.download = `watermark_${Date.now()}.png`;
@@ -261,109 +168,12 @@ export default function App() {
     }
   };
 
-  const handleDownload = () => {
-    if (!currentUser) {
-      setShowLogin(true);
-      return;
-    }
-    if (!isVipValid()) {
-      setShowPayment(true);
-      return;
-    }
-    downloadCanvas();
-  };
-
-  const handlePaymentSuccess = async () => {
-    try {
-      const amount = paymentType === 'single' ? appSettings.singlePrice : appSettings.monthlyPrice;
-      const res = await fetch('/api/payments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          type: paymentType, 
-          amount, 
-          timestamp: new Date().toISOString(),
-          phone: currentUser?.phone
-        })
-      });
-      
-      if (!res.ok) throw new Error('API not available');
-      
-      if (paymentType === 'monthly' && currentUser) {
-        const currentExpiry = currentUser.vipExpiresAt ? new Date(currentUser.vipExpiresAt).getTime() : Date.now();
-        const newExpiry = Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000;
-        setCurrentUser({
-          ...currentUser,
-          isVip: true,
-          vipExpiresAt: new Date(newExpiry).toISOString()
-        });
-      }
-      
-      setShowPayment(false);
-      setTimeout(() => {
-        downloadCanvas();
-      }, 300);
-    } catch (error) {
-      console.warn("Backend API not available, using local storage", error);
-      
-      // Fallback for static hosting
-      if (paymentType === 'monthly' && currentUser) {
-        const currentExpiry = currentUser.vipExpiresAt ? new Date(currentUser.vipExpiresAt).getTime() : Date.now();
-        const newExpiry = Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000;
-        const updatedUser = {
-          ...currentUser,
-          isVip: true,
-          vipExpiresAt: new Date(newExpiry).toISOString()
-        };
-        setCurrentUser(updatedUser);
-        
-        // Update local storage
-        const localUsers = JSON.parse(localStorage.getItem('mock_users') || '[]');
-        const userIndex = localUsers.findIndex((u: any) => u.phone === currentUser.phone);
-        if (userIndex >= 0) {
-          localUsers[userIndex] = updatedUser;
-          localStorage.setItem('mock_users', JSON.stringify(localUsers));
-        }
-      }
-      
-      setShowPayment(false);
-      setTimeout(() => {
-        downloadCanvas();
-      }, 300);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
       <div className="max-w-6xl mx-auto">
-        <header className="mb-8 flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">自定义水印相机</h1>
-            <p className="text-gray-500 mt-2">上传照片并自定义水印信息，无需实时定位</p>
-          </div>
-          {currentUser ? (
-            <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex flex-col items-end">
-                <span className="text-sm font-medium text-gray-700">{currentUser.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')}</span>
-                {isVipValid() ? (
-                  <span className="text-xs text-yellow-600 font-bold">VIP 至 {new Date(currentUser.vipExpiresAt!).toLocaleDateString()}</span>
-                ) : (
-                  <span className="text-xs text-gray-400">普通用户</span>
-                )}
-              </div>
-              <button onClick={handleLogout} className="p-1.5 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors">
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-          ) : (
-            <button 
-              onClick={() => setShowLogin(true)}
-              className="flex items-center gap-2 text-sm font-medium text-blue-600 bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors"
-            >
-              <User className="w-5 h-5" />
-              登录 / 注册
-            </button>
-          )}
+        <header className="mb-10 text-center">
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">自定义水印相机</h1>
+          <p className="text-gray-500 mt-2">上传照片并自定义水印信息，完全免费，无需登录</p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -494,140 +304,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Login Modal */}
-      {showLogin && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">登录 / 注册</h3>
-                <button 
-                  onClick={() => setShowLogin(false)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-              
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">手机号码</label>
-                <input 
-                  type="tel" 
-                  maxLength={11}
-                  value={phoneInput}
-                  onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))}
-                  placeholder="请输入11位手机号码"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-lg"
-                />
-                <p className="text-xs text-gray-500 mt-2">未注册的手机号验证后将自动创建账号</p>
-              </div>
-
-              <button 
-                onClick={handleLogin}
-                disabled={phoneInput.length !== 11}
-                className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                登录
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Modal */}
-      {showPayment && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="p-6 relative">
-              <button 
-                onClick={() => setShowPayment(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-              
-              <div className="text-center mb-6">
-                <div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Crown className="w-8 h-8" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">解锁高清无水印保存</h2>
-                <p className="text-gray-500 mt-2">支持微信/支付宝扫码支付</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div 
-                  onClick={() => setPaymentType('single')}
-                  className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${paymentType === 'single' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-200'}`}
-                >
-                  <div className="text-sm text-gray-600 mb-1">单次使用</div>
-                  <div className="text-2xl font-bold text-blue-600">¥{appSettings.singlePrice.toFixed(2)}</div>
-                  <div className="text-xs text-gray-500 mt-1">仅限本次导出</div>
-                </div>
-                <div 
-                  onClick={() => setPaymentType('monthly')}
-                  className={`border-2 rounded-xl p-4 cursor-pointer transition-all relative ${paymentType === 'monthly' ? 'border-yellow-500 bg-yellow-50' : 'border-gray-200 hover:border-yellow-200'}`}
-                >
-                  <div className="absolute -top-3 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold transform rotate-12">特惠</div>
-                  <div className="text-sm text-gray-600 mb-1">包月 VIP</div>
-                  <div className="text-2xl font-bold text-yellow-600">¥{appSettings.monthlyPrice.toFixed(2)}</div>
-                  <div className="text-xs text-gray-500 mt-1">30天内无限次使用</div>
-                </div>
-              </div>
-
-              {/* Payment Method Toggle */}
-              <div className="flex bg-gray-100 p-1 rounded-lg mb-4">
-                <button
-                  onClick={() => setPaymentMethod('wechat')}
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${paymentMethod === 'wechat' ? 'bg-white text-[#07C160] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  微信支付
-                </button>
-                <button
-                  onClick={() => setPaymentMethod('alipay')}
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${paymentMethod === 'alipay' ? 'bg-white text-[#1677FF] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  支付宝
-                </button>
-              </div>
-
-              <div className="bg-gray-50 rounded-xl p-6 flex flex-col items-center justify-center border border-gray-100 mb-6">
-                <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-200 mb-3 w-40 h-40 flex items-center justify-center overflow-hidden">
-                  {paymentMethod === 'wechat' ? (
-                    appSettings.wechatQrCode ? (
-                      <img src={appSettings.wechatQrCode} alt="WeChat QR" className="w-full h-full object-contain" />
-                    ) : (
-                      <div className="text-center text-gray-400">
-                        <QrCode className="w-16 h-16 mx-auto mb-2 opacity-50" />
-                        <span className="text-xs">未配置微信收款码</span>
-                      </div>
-                    )
-                  ) : (
-                    appSettings.alipayQrCode ? (
-                      <img src={appSettings.alipayQrCode} alt="Alipay QR" className="w-full h-full object-contain" />
-                    ) : (
-                      <div className="text-center text-gray-400">
-                        <QrCode className="w-16 h-16 mx-auto mb-2 opacity-50" />
-                        <span className="text-xs">未配置支付宝收款码</span>
-                      </div>
-                    )
-                  )}
-                </div>
-                <p className="text-sm text-gray-500 flex items-center gap-1">
-                  请使用 <span className={`font-medium ${paymentMethod === 'wechat' ? 'text-[#07C160]' : 'text-[#1677FF]'}`}>{paymentMethod === 'wechat' ? '微信' : '支付宝'}</span> 扫码支付
-                </p>
-              </div>
-
-              <button 
-                onClick={handlePaymentSuccess}
-                className="w-full py-3.5 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 className="w-5 h-5" />
-                我已完成支付 (模拟测试)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
