@@ -1,0 +1,32 @@
+name: Deploy to Aliyun OSS
+
+on:
+  push:
+    branches:
+      - main # 如果你的主分支叫 master，请改成 master
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18' # 使用 Node 18 环境
+
+      - name: Install & Build
+        run: |
+          npm install
+          npm run build # 这里会自动执行打包
+
+      - name: Deploy to OSS
+        uses: fangbinwei/aliyun-oss-website-action@v1 # 使用开源的部署工具
+        with:
+          accessKeyId: ${{ secrets.OSS_ACCESS_KEY_ID }} # 稍后在阿里云获取
+          accessKeySecret: ${{ secrets.OSS_ACCESS_KEY_SECRET }} # 稍后在阿里云获取
+          bucket: '你的bucket名称' # 例如：my-website-123
+          endpoint: '你的bucket地域节点' # 例如：oss-cn-hongkong.aliyuncs.com
+          folder: './dist' # Vite 打包后的文件夹通常是 dist
