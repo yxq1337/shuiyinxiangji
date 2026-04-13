@@ -27,6 +27,6 @@ jobs:
         with:
           accessKeyId: ${{ secrets.OSS_ACCESS_KEY_ID }} # 稍后在阿里云获取
           accessKeySecret: ${{ secrets.OSS_ACCESS_KEY_SECRET }} # 稍后在阿里云获取
-          bucket: '你的bucket名称' # 例如：my-website-123
-          endpoint: '你的bucket地域节点' # 例如：oss-cn-hongkong.aliyuncs.com
+          bucket: syxiangji # 例如：my-website-123
+          endpoint: oss-cn-hongkong.aliyuncs.com # 例如：oss-cn-hongkong.aliyuncs.com
           folder: './dist' # Vite 打包后的文件夹通常是 dist
