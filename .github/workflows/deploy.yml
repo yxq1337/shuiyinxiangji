@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18' # 使用 Node 18 环境
+          node-version: '20' # 使用 Node 20 环境，以支持最新的依赖
 
       - name: Install & Build
         run: |
