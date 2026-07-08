@@ -43,7 +43,7 @@ export default function Navbar() {
                   个人中心
                 </Link>
               )}
-              {user?.phone === 'admin' && (
+              {user?.isAdmin && (
                 <Link
                   to="/admin"
                   className={`text-sm font-medium transition-colors ${

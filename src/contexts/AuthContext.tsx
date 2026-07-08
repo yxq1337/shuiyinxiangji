@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiPost, apiGet } from '../lib/api';
 
 interface User {
   id: string;
@@ -6,12 +7,14 @@ interface User {
   isVip: boolean;
   vipExpiresAt: string | null;
   createdAt: string;
+  isAdmin?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (phone: string) => Promise<void>;
+  loginAdmin: (username: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -25,18 +28,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch {
+        localStorage.removeItem('user');
+      }
     }
     setIsLoading(false);
   }, []);
 
   const login = async (phone: string) => {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone }),
-    });
-    const data = await response.json();
+    const data = await apiPost('/api/auth/login', { phone });
+    if (data.success) {
+      setUser(data.user);
+      localStorage.setItem('user', JSON.stringify(data.user));
+    } else {
+      throw new Error(data.error || '登录失败');
+    }
+  };
+
+  const loginAdmin = async (username: string, password: string) => {
+    const data = await apiPost('/api/auth/login', { username, password });
     if (data.success) {
       setUser(data.user);
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -51,23 +63,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshUser = async () => {
-    if (user) {
-      try {
-        const response = await fetch('/api/admin/users');
-        const data = await response.json();
-        const refreshedUser = data.users.find((u: User) => u.id === user.id);
-        if (refreshedUser) {
-          setUser(refreshedUser);
-          localStorage.setItem('user', JSON.stringify(refreshedUser));
-        }
-      } catch (e) {
-        console.error('刷新用户信息失败', e);
+    if (!user) return;
+    try {
+      const data = await apiGet(`/api/auth/me/${user.id}`);
+      if (data.success && data.user) {
+        setUser(data.user);
+        localStorage.setItem('user', JSON.stringify(data.user));
       }
+    } catch (e) {
+      console.error('刷新用户信息失败', e);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginAdmin, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, CreditCard, TrendingUp, Settings, DollarSign, UserPlus, Calendar, Edit2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { apiGet, apiPost } from '../lib/api';
 
 interface Stats {
   totalRevenue: string;
@@ -49,7 +50,7 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'payments' | 'settings'>('dashboard');
 
   useEffect(() => {
-    if (user?.phone !== 'admin') {
+    if (!user?.isAdmin) {
       navigate('/');
       return;
     }
@@ -60,10 +61,10 @@ export default function Admin() {
     setLoading(true);
     try {
       const [statsRes, usersRes, paymentsRes, settingsRes] = await Promise.all([
-        fetch('/api/admin/stats').then((r) => r.json()),
-        fetch('/api/admin/users').then((r) => r.json()),
-        fetch('/api/admin/payments').then((r) => r.json()),
-        fetch('/api/settings').then((r) => r.json()),
+        apiGet('/api/admin/stats'),
+        apiGet('/api/admin/users'),
+        apiGet('/api/admin/payments'),
+        apiGet('/api/settings'),
       ]);
       setStats(statsRes);
       setUsers(usersRes.users);
@@ -87,11 +88,7 @@ export default function Admin() {
       wechatQrCode: formData.get('wechatQrCode') as string,
     };
     try {
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedSettings),
-      });
+      await apiPost('/api/settings', updatedSettings);
       setSettings(updatedSettings);
       setIsEditingSettings(false);
     } catch (e) {

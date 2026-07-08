@@ -1,0 +1,23 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "shuiyinxiangji-api"
+main = "worker/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 数据库绑定（部署前需先创建：wrangler d1 create shuiyinxiangji-db）
+# 创建后把 database_id 填入下方
+[[d1_databases]]
+binding = "DB"
+database_name = "shuiyinxiangji-db"
+database_id = "REPLACE_WITH_YOUR_D1_ID"
+
+# 管理员账号（生产环境请使用 wrangler secret 设置更安全）
+# wrangler secret put ADMIN_PASSWORD
+[vars]
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "VIP1337"
+
+# 触发规则：所有 /api/* 请求走 Worker
+[[routes]]
+pattern = "shuiyinxiangji-api.*.workers.dev/*"
+zone_id = ""

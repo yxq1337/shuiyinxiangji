@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Crown, Zap, Clock, CreditCard } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { apiGet, apiPost } from '../lib/api';
 
 interface PricingPlan {
   type: 'single' | 'monthly' | 'yearly';
@@ -26,9 +27,7 @@ export default function Pricing() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch('/api/settings')
-      .then((res) => res.json())
-      .then((data) => setSettings(data));
+    apiGet('/api/settings').then((data) => setSettings(data));
   }, []);
 
   const plans: PricingPlan[] = [
@@ -60,17 +59,12 @@ export default function Pricing() {
 
     setTimeout(async () => {
       try {
-        const response = await fetch('/api/payments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: selectedPlan,
-            amount: plans.find((p) => p.type === selectedPlan)?.price,
-            phone: user.phone,
-            timestamp: new Date().toISOString(),
-          }),
+        const data = await apiPost('/api/payments', {
+          type: selectedPlan,
+          amount: plans.find((p) => p.type === selectedPlan)?.price,
+          phone: user.phone,
+          timestamp: new Date().toISOString(),
         });
-        const data = await response.json();
         if (data.success) {
           setPaymentSuccess(true);
           await refreshUser();

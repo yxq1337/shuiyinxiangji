@@ -33,21 +33,65 @@ async function startServer() {
   });
 
   // Auth API
+  // Auth API - 支持手机号登录 或 管理员密码登录
   app.post("/api/auth/login", (req, res) => {
-    const { phone } = req.body;
-    if (!phone) return res.status(400).json({ error: 'Phone required' });
-    
+    const { phone, username, password } = req.body;
+
+    // 管理员密码登录
+    if (username && password) {
+      const adminUser = process.env.ADMIN_USERNAME || 'admin';
+      const adminPass = process.env.ADMIN_PASSWORD || 'VIP1337';
+      if (username === adminUser && password === adminPass) {
+        return res.json({
+          success: true,
+          user: {
+            id: 'admin',
+            phone: 'admin',
+            isVip: true,
+            vipExpiresAt: null,
+            createdAt: new Date().toISOString(),
+            isAdmin: true,
+          },
+        });
+      }
+      return res.status(401).json({ success: false, error: '用户名或密码错误' });
+    }
+
+    // 普通用户手机号登录
+    if (!phone) return res.status(400).json({ success: false, error: '请输入手机号' });
+
     let user = users.find(u => u.phone === phone);
     if (!user) {
-      user = { 
-        id: 'u' + Date.now(), 
-        phone, 
-        isVip: false, 
-        vipExpiresAt: null, 
-        createdAt: new Date().toISOString() 
+      user = {
+        id: 'u' + Date.now(),
+        phone,
+        isVip: false,
+        vipExpiresAt: null,
+        createdAt: new Date().toISOString()
       };
       users.push(user);
     }
+    res.json({ success: true, user });
+  });
+
+  // 根据 ID 获取用户
+  app.get("/api/auth/me/:id", (req, res) => {
+    const { id } = req.params;
+    if (id === 'admin') {
+      return res.json({
+        success: true,
+        user: {
+          id: 'admin',
+          phone: 'admin',
+          isVip: true,
+          vipExpiresAt: null,
+          createdAt: new Date().toISOString(),
+          isAdmin: true,
+        },
+      });
+    }
+    const user = users.find(u => u.id === id);
+    if (!user) return res.status(404).json({ success: false, error: '用户不存在' });
     res.json({ success: true, user });
   });
 
