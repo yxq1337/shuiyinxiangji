@@ -8,11 +8,15 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { generateOrderId, validateBase64Image, orderTitle } from './orders';
+import { notifyAdminNewOrder, notifyUserOrderApproved, notifyUserOrderRejected } from './email';
 
 type Bindings = {
   DB: D1Database;
   ADMIN_USERNAME: string;
   ADMIN_PASSWORD: string;
+  RESEND_API_KEY?: string;
+  ADMIN_EMAIL?: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -164,6 +168,102 @@ app.post('/api/settings', async (c) => {
       alipayQrCode: updated.alipay_qr_code,
       wechatQrCode: updated.wechat_qr_code,
     },
+  });
+});
+
+// ==================== 订单 API ====================
+
+app.post('/api/orders/create', async (c) => {
+  const body = await c.req.json();
+  const { type, phone, email } = body;
+  if (!phone || !type) return c.json({ success: false, error: '缺少 phone 或 type' }, 400);
+  if (type !== 'single' && type !== 'monthly') {
+    return c.json({ success: false, error: '无效的套餐类型' }, 400);
+  }
+
+  const db = c.env.DB;
+  const user = await db.prepare('SELECT * FROM users WHERE phone = ?').bind(phone).first();
+  if (!user) return c.json({ success: false, error: '用户不存在' }, 404);
+
+  const settings = await db.prepare('SELECT single_price, monthly_price, wechat_qr_url FROM settings WHERE id = 1').first();
+  const singlePrice = Number(settings?.single_price ?? 1.99);
+  const monthlyPrice = Number(settings?.monthly_price ?? 9.90);
+  const amount = type === 'single' ? singlePrice : monthlyPrice;
+  const qrUrl = String(settings?.wechat_qr_url || '/wechat-pay-qr.png');
+
+  const orderId = generateOrderId();
+  const now = new Date().toISOString();
+
+  await db
+    .prepare(
+      `INSERT INTO payments (id, order_id, provider, type, amount, timestamp, status, phone, user_email)
+       VALUES (?, ?, 'manual', ?, ?, ?, 'created', ?, ?)`
+    )
+    .bind(orderId, orderId, type, amount, now, phone, email || null)
+    .run();
+
+  return c.json({
+    success: true,
+    order_id: orderId,
+    amount,
+    title: orderTitle(type),
+    qr_url: qrUrl,
+    instructions: `请扫码支付 ¥${amount.toFixed(2)}，付款时请在备注中填写订单号：${orderId}`,
+  });
+});
+
+app.post('/api/orders/:id/upload-proof', async (c) => {
+  const orderId = c.req.param('id');
+  const body = await c.req.json();
+  const proof = String(body.proof_base64 || '');
+
+  const validation = validateBase64Image(proof);
+  if (!validation.ok) {
+    return c.json({ success: false, error: validation.error }, 400);
+  }
+
+  const db = c.env.DB;
+  const order = await db.prepare('SELECT * FROM payments WHERE order_id = ?').bind(orderId).first();
+  if (!order) return c.json({ success: false, error: '订单不存在' }, 404);
+  if (order.status !== 'created' && order.status !== 'pending_review') {
+    return c.json({ success: false, error: `订单当前状态不允许上传：${order.status}` }, 400);
+  }
+
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `UPDATE payments SET status = 'pending_review', raw_notify = ?, proof_uploaded_at = ? WHERE order_id = ?`
+    )
+    .bind(proof, now, orderId)
+    .run();
+
+  c.executionCtx.waitUntil(
+    notifyAdminNewOrder(c.env, {
+      order_id: String(order.order_id),
+      amount: Number(order.amount),
+      type: String(order.type),
+      phone: String(order.phone),
+    })
+  );
+
+  return c.json({ success: true, status: 'pending_review' });
+});
+
+app.get('/api/orders/:id/status', async (c) => {
+  const orderId = c.req.param('id');
+  const order = await c.env.DB
+    .prepare('SELECT order_id, status, reject_reason, paid_at, type, amount FROM payments WHERE order_id = ?')
+    .bind(orderId)
+    .first();
+  if (!order) return c.json({ success: false, error: '订单不存在' }, 404);
+  return c.json({
+    success: true,
+    order_id: order.order_id,
+    status: order.status,
+    reject_reason: order.reject_reason,
+    paid_at: order.paid_at,
+    type: order.type,
+    amount: order.amount,
   });
 });
 
