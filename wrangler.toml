@@ -9,7 +9,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "shuiyinxiangji-db"
-database_id = "REPLACE_WITH_YOUR_D1_ID"
+database_id = "62c72411-197f-4c88-baec-97d857d5205d"
 
 # 管理员账号（生产环境请使用 wrangler secret 设置更安全）
 # wrangler secret put ADMIN_PASSWORD
@@ -17,7 +17,5 @@ database_id = "REPLACE_WITH_YOUR_D1_ID"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "VIP1337"
 
-# 触发规则：所有 /api/* 请求走 Worker
-[[routes]]
-pattern = "shuiyinxiangji-api.*.workers.dev/*"
-zone_id = ""
+# Worker 部署完成后会得到默认的 workers.dev 域名
+# 无需配置 routes（除非绑定自定义域名）
