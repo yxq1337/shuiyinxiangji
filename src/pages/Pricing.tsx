@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Crown, Zap, Clock, CreditCard } from 'lucide-react';
+import { Check, Crown, CreditCard } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiGet, apiPost } from '../lib/api';
 
@@ -21,9 +21,7 @@ export default function Pricing() {
     monthlyPrice: 9.99,
   });
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showQr, setShowQr] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
-  const { user, refreshUser } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -55,27 +53,22 @@ export default function Pricing() {
       return;
     }
     setIsProcessing(true);
-    setShowQr(true);
-
-    setTimeout(async () => {
-      try {
-        const data = await apiPost('/api/payments', {
-          type: selectedPlan,
-          amount: plans.find((p) => p.type === selectedPlan)?.price,
-          phone: user.phone,
-          timestamp: new Date().toISOString(),
-        });
-        if (data.success) {
-          setPaymentSuccess(true);
-          await refreshUser();
-          setTimeout(() => navigate('/my'), 2000);
-        }
-      } catch (e) {
-        console.error('支付失败', e);
-      } finally {
+    try {
+      const data = await apiPost('/api/orders/create', {
+        type: selectedPlan,
+        phone: user.phone,
+      });
+      if (!data.success || !data.order_id) {
+        alert(data.error || '创建订单失败');
         setIsProcessing(false);
+        return;
       }
-    }, 2000);
+      navigate(`/payment/pending?order_id=${data.order_id}`);
+    } catch (e) {
+      console.error('创建订单失败', e);
+      alert('网络错误，请稍后重试');
+      setIsProcessing(false);
+    }
   };
 
   if (!user) {
@@ -171,35 +164,6 @@ export default function Pricing() {
               <CreditCard className="w-5 h-5" />
               <span>{isProcessing ? '支付中...' : '立即购买'}</span>
             </button>
-          </div>
-        )}
-
-        {showQr && !paymentSuccess && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center">
-              <Zap className="w-12 h-12 text-blue-500 mx-auto mb-4 animate-pulse" />
-              <h3 className="text-xl font-bold text-gray-900 mb-2">模拟支付中</h3>
-              <p className="text-gray-500">扫码支付（演示环境自动完成）</p>
-              <div className="w-48 h-48 bg-gray-100 rounded-lg mx-auto my-6 flex items-center justify-center">
-                <div className="text-gray-400 text-sm">二维码区域</div>
-              </div>
-              <p className="text-sm text-gray-500">
-                <Clock className="w-4 h-4 inline mr-1" />
-                正在确认支付...
-              </p>
-            </div>
-          </div>
-        )}
-
-        {paymentSuccess && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="w-8 h-8 text-green-500" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">支付成功！</h3>
-              <p className="text-gray-500">正在跳转...</p>
-            </div>
           </div>
         )}
       </div>
