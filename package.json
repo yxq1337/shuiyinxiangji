@@ -13,6 +13,8 @@
     "db:create": "wrangler d1 create shuiyinxiangji-db",
     "db:init": "wrangler d1 execute shuiyinxiangji-db --file=worker/schema.sql",
     "db:init:remote": "wrangler d1 execute shuiyinxiangji-db --file=worker/schema.sql --remote",
+    "db:migrate:v2": "wrangler d1 execute shuiyinxiangji-db --file=worker/schema-migrate-v2.sql",
+    "db:migrate:v2:remote": "wrangler d1 execute shuiyinxiangji-db --file=worker/schema-migrate-v2.sql --remote",
     "deploy:worker": "wrangler deploy",
     "deploy:pages": "npm run build && wrangler pages deploy dist --project-name=shuiyinxiangji"
   },
