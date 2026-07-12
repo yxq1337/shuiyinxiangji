@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import UserCenter from './pages/UserCenter';
 import Pricing from './pages/Pricing';
 import Admin from './pages/Admin';
+import PaymentPending from './pages/PaymentPending';
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/my" element={<UserCenter />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/payment/pending" element={<PaymentPending />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </div>
