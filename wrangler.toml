@@ -15,7 +15,7 @@ database_id = "62c72411-197f-4c88-baec-97d857d5205d"
 # wrangler secret put ADMIN_PASSWORD
 [vars]
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "VIP1337"
+ADMIN_PASSWORD = "vip1337"
 
 # Worker 部署完成后会得到默认的 workers.dev 域名
 # 无需配置 routes（除非绑定自定义域名）
