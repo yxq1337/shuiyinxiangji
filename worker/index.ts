@@ -358,6 +358,116 @@ app.get('/api/admin/stats', async (c) => {
   });
 });
 
+// -------- 订单审核 API --------
+
+app.get('/api/admin/orders/pending', async (c) => {
+  const result = await c.env.DB
+    .prepare(
+      `SELECT order_id, phone, type, amount, timestamp, proof_uploaded_at, raw_notify, user_email
+       FROM payments WHERE status = 'pending_review'
+       ORDER BY proof_uploaded_at DESC`
+    )
+    .all();
+  const orders = (result.results || []).map((r: any) => ({
+    order_id: r.order_id,
+    phone: r.phone,
+    type: r.type,
+    amount: r.amount,
+    timestamp: r.timestamp,
+    proof_uploaded_at: r.proof_uploaded_at,
+    proof_base64: r.raw_notify,
+    user_email: r.user_email,
+  }));
+  return c.json({ orders });
+});
+
+app.get('/api/admin/orders/pending-count', async (c) => {
+  const row = await c.env.DB
+    .prepare(`SELECT COUNT(*) as cnt FROM payments WHERE status = 'pending_review'`)
+    .first();
+  return c.json({ count: Number(row?.cnt || 0) });
+});
+
+app.post('/api/admin/orders/:id/approve', async (c) => {
+  const orderId = c.req.param('id');
+  const db = c.env.DB;
+  const order = await db.prepare('SELECT * FROM payments WHERE order_id = ?').bind(orderId).first();
+  if (!order) return c.json({ success: false, error: '订单不存在' }, 404);
+  if (order.status !== 'pending_review') {
+    return c.json({ success: false, error: `订单当前状态不允许审核：${order.status}` }, 400);
+  }
+
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `UPDATE payments SET status = 'success', paid_at = ?, reviewed_at = ?, reviewed_by = 'admin' WHERE order_id = ?`
+    )
+    .bind(now, now, orderId)
+    .run();
+
+  // 激活 VIP（monthly）
+  if (order.type === 'monthly' && order.phone) {
+    const user = await db.prepare('SELECT * FROM users WHERE phone = ?').bind(order.phone).first();
+    if (user) {
+      const currentExpiry = user.vip_expires_at ? new Date(user.vip_expires_at as string).getTime() : Date.now();
+      const newExpiry = new Date(Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000).toISOString();
+      await db
+        .prepare('UPDATE users SET is_vip = 1, vip_expires_at = ? WHERE phone = ?')
+        .bind(newExpiry, order.phone)
+        .run();
+    }
+  }
+
+  c.executionCtx.waitUntil(
+    notifyUserOrderApproved(c.env, {
+      order_id: String(order.order_id),
+      amount: Number(order.amount),
+      type: String(order.type),
+      phone: String(order.phone),
+      user_email: order.user_email as string | null,
+    })
+  );
+
+  return c.json({ success: true });
+});
+
+app.post('/api/admin/orders/:id/reject', async (c) => {
+  const orderId = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const reason = String(body.reason || '未提供原因');
+
+  const db = c.env.DB;
+  const order = await db.prepare('SELECT * FROM payments WHERE order_id = ?').bind(orderId).first();
+  if (!order) return c.json({ success: false, error: '订单不存在' }, 404);
+  if (order.status !== 'pending_review') {
+    return c.json({ success: false, error: `订单当前状态不允许审核：${order.status}` }, 400);
+  }
+
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `UPDATE payments SET status = 'rejected', reject_reason = ?, reviewed_at = ?, reviewed_by = 'admin' WHERE order_id = ?`
+    )
+    .bind(reason, now, orderId)
+    .run();
+
+  c.executionCtx.waitUntil(
+    notifyUserOrderRejected(
+      c.env,
+      {
+        order_id: String(order.order_id),
+        amount: Number(order.amount),
+        type: String(order.type),
+        phone: String(order.phone),
+        user_email: order.user_email as string | null,
+      },
+      reason
+    )
+  );
+
+  return c.json({ success: true });
+});
+
 // ==================== 工具函数 ====================
 function mapUser(row: any) {
   return {
