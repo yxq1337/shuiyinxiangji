@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, Clock, XCircle, Upload, Copy } from 'lucide-react';
+import { Check, Clock, XCircle, Upload, Copy, MessageCircle } from 'lucide-react';
 import { apiGet, apiPost } from '../lib/api';
 import { compressImage } from '../lib/imageCompress';
 import { useAuth } from '../contexts/AuthContext';
@@ -182,6 +182,19 @@ export default function PaymentPending() {
                 {uploading ? '上传中...' : '上传付款截图'}
               </button>
               {error && <p className="text-red-500 text-sm mt-2 text-center">{error}</p>}
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="bg-blue-50 rounded-lg p-6 text-center">
+                <MessageCircle className="w-12 h-12 text-blue-600 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-gray-900 mb-2">遇到问题？</h3>
+                <p className="text-sm text-gray-600 mb-4">添加微信客服咨询</p>
+                <img
+                  src="/wechat-customer-service.png"
+                  alt="微信客服二维码"
+                  className="w-full max-w-xs mx-auto rounded-lg border border-gray-200"
+                />
+              </div>
             </div>
           </>
         )}
