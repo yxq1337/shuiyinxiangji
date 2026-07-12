@@ -1,0 +1,414 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+// 本地内存存储 (Vercel Serverless Functions 是无状态的，这个仅用于演示)
+interface Payment {
+  id: string;
+  order_id: string;
+  provider: string;
+  type: string;
+  amount: number;
+  timestamp: string;
+  status: string;
+  phone: string;
+  user_email?: string | null;
+  raw_notify?: string | null;
+  proof_uploaded_at?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  reject_reason?: string | null;
+  paid_at?: string | null;
+}
+
+interface User {
+  id: string;
+  phone: string;
+  is_vip: number;
+  vip_expires_at?: string | null;
+  created_at: string;
+}
+
+// 持久化存储（在生产中应该用数据库）
+let payments: Payment[] = [];
+let users: User[] = [
+  { id: 'demo1', phone: '13800138000', is_vip: 0, created_at: new Date(Date.now() - 86400000).toISOString() },
+  { id: 'demo2', phone: '13900139000', is_vip: 1, vip_expires_at: new Date(Date.now() + 30 * 86400000).toISOString(), created_at: new Date(Date.now() - 3600000).toISOString() }
+];
+
+let appSettings = {
+  singlePrice: 1.99,
+  monthlyPrice: 9.90,
+  paymentAccount: 'admin@example.com',
+  alipayQrCode: '',
+  wechatQrCode: '',
+  wechat_qr_url: '',
+  admin_email: '',
+  resend_api_key: ''
+};
+
+// 工具函数
+function generateOrderId(): string {
+  const now = new Date();
+  const YY = String(now.getFullYear() % 100).padStart(2, '0');
+  const MM = String(now.getMonth() + 1).padStart(2, '0');
+  const DD = String(now.getDate()).padStart(2, '0');
+  const HH = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let rand = '';
+  for (let i = 0; i < 4; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  return `SYX${YY}${MM}${DD}${HH}${mm}${rand}`;
+}
+
+function validateBase64Image(data: string): { ok: boolean; error?: string } {
+  if (!data.startsWith('data:image/')) {
+    return { ok: false, error: '仅支持图片格式' };
+  }
+  const sizeBytes = (data.length * 3) / 4;
+  if (sizeBytes > 900 * 1024) {
+    return { ok: false, error: '图片过大，请压缩后重传' };
+  }
+  return { ok: true };
+}
+
+function orderTitle(type: string): string {
+  return type === 'monthly' ? '水印相机 - 月度会员' : '水印相机 - 单次付费';
+}
+
+function mapUser(row: any): any {
+  return {
+    id: row.id,
+    phone: row.phone,
+    isVip: !!row.is_vip,
+    vipExpiresAt: row.vip_expires_at,
+    createdAt: row.created_at,
+  };
+}
+
+// 路由处理
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const { path = '' } = req.query;
+  const pathname = Array.isArray(path) ? path.join('/') : path;
+
+  // 设置 CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  console.log(`[${req.method}] /api/${pathname}`);
+
+  try {
+    // ==================== 健康检查 ====================
+    if (req.method === 'GET' && pathname === 'health') {
+      return res.json({ status: 'ok' });
+    }
+
+    // ==================== 认证 API ====================
+
+    if (req.method === 'POST' && pathname === 'auth/login') {
+      const { phone, username, password } = req.body;
+
+      // 管理员密码登录
+      if (username && password) {
+        const adminUser = process.env.ADMIN_USERNAME || 'admin';
+        const adminPass = process.env.ADMIN_PASSWORD || 'vip1337';
+        if (username === adminUser && password === adminPass) {
+          return res.json({
+            success: true,
+            user: {
+              id: 'admin',
+              phone: 'admin',
+              isVip: true,
+              vipExpiresAt: null,
+              createdAt: new Date().toISOString(),
+              isAdmin: true,
+            },
+          });
+        }
+        return res.status(401).json({ success: false, error: '用户名或密码错误' });
+      }
+
+      // 普通用户手机号登录
+      if (!phone) return res.status(400).json({ success: false, error: '请输入手机号' });
+
+      let user = users.find(u => u.phone === phone);
+      if (!user) {
+        user = {
+          id: 'u' + Date.now(),
+          phone,
+          is_vip: 0,
+          created_at: new Date().toISOString()
+        };
+        users.push(user);
+      }
+      return res.json({ success: true, user: mapUser(user) });
+    }
+
+    if (req.method === 'GET' && pathname.startsWith('auth/me/')) {
+      const id = pathname.split('/')[2];
+      if (id === 'admin') {
+        return res.json({
+          success: true,
+          user: {
+            id: 'admin',
+            phone: 'admin',
+            isVip: true,
+            vipExpiresAt: null,
+            createdAt: new Date().toISOString(),
+            isAdmin: true,
+          },
+        });
+      }
+      const user = users.find(u => u.id === id);
+      if (!user) return res.status(404).json({ success: false, error: '用户不存在' });
+      return res.json({ success: true, user: mapUser(user) });
+    }
+
+    // ==================== 系统设置 API ====================
+    if (req.method === 'GET' && pathname === 'settings') {
+      return res.json({
+        singlePrice: appSettings.singlePrice,
+        monthlyPrice: appSettings.monthlyPrice,
+        paymentAccount: appSettings.paymentAccount,
+        alipayQrCode: appSettings.alipayQrCode,
+        wechatQrCode: appSettings.wechatQrCode,
+      });
+    }
+
+    if (req.method === 'POST' && pathname === 'settings') {
+      const { singlePrice, monthlyPrice, paymentAccount, alipayQrCode, wechatQrCode } = req.body;
+      if (singlePrice !== undefined) appSettings.singlePrice = Number(singlePrice);
+      if (monthlyPrice !== undefined) appSettings.monthlyPrice = Number(monthlyPrice);
+      if (paymentAccount !== undefined) appSettings.paymentAccount = paymentAccount;
+      if (alipayQrCode !== undefined) appSettings.alipayQrCode = alipayQrCode;
+      if (wechatQrCode !== undefined) appSettings.wechatQrCode = wechatQrCode;
+      return res.json({ success: true, settings: appSettings });
+    }
+
+    // ==================== 订单 API ====================
+
+    if (req.method === 'POST' && pathname === 'orders/create') {
+      const { type, phone, email } = req.body;
+      if (!phone || !type) return res.status(400).json({ success: false, error: '缺少 phone 或 type' });
+      if (type !== 'single' && type !== 'monthly') {
+        return res.status(400).json({ success: false, error: '无效的套餐类型' });
+      }
+
+      const user = users.find(u => u.phone === phone);
+      if (!user) return res.status(404).json({ success: false, error: '用户不存在' });
+
+      const singlePrice = appSettings.singlePrice;
+      const monthlyPrice = appSettings.monthlyPrice;
+      const amount = type === 'single' ? singlePrice : monthlyPrice;
+      const qrUrl = appSettings.wechat_qr_url || '/wechat-pay-qr.png';
+
+      const orderId = generateOrderId();
+      const now = new Date().toISOString();
+
+      const payment: Payment = {
+        id: orderId,
+        order_id: orderId,
+        provider: 'manual',
+        type,
+        amount,
+        timestamp: now,
+        status: 'created',
+        phone,
+        user_email: email || null,
+      };
+      payments.push(payment);
+
+      return res.json({
+        success: true,
+        order_id: orderId,
+        amount,
+        title: orderTitle(type),
+        qr_url: qrUrl,
+        instructions: `请扫码支付 ¥${amount.toFixed(2)}，付款时请在备注中填写订单号：${orderId}`,
+      });
+    }
+
+    if (req.method === 'POST' && pathname.startsWith('orders/') && pathname.endsWith('/upload-proof')) {
+      const orderId = pathname.split('/')[1];
+      const { proof_base64 } = req.body;
+      const proof = String(proof_base64 || '');
+
+      const validation = validateBase64Image(proof);
+      if (!validation.ok) {
+        return res.status(400).json({ success: false, error: validation.error });
+      }
+
+      const order = payments.find(p => p.order_id === orderId);
+      if (!order) return res.status(404).json({ success: false, error: '订单不存在' });
+      if (order.status !== 'created' && order.status !== 'pending_review') {
+        return res.status(400).json({ success: false, error: `订单当前状态不允许上传：${order.status}` });
+      }
+
+      const now = new Date().toISOString();
+      order.status = 'pending_review';
+      order.raw_notify = proof;
+      order.proof_uploaded_at = now;
+
+      return res.json({ success: true, status: 'pending_review' });
+    }
+
+    if (req.method === 'GET' && pathname.startsWith('orders/') && pathname.endsWith('/status')) {
+      const orderId = pathname.split('/')[1];
+      const order = payments.find(p => p.order_id === orderId);
+      if (!order) return res.status(404).json({ success: false, error: '订单不存在' });
+      return res.json({
+        success: true,
+        order_id: order.order_id,
+        status: order.status,
+        reject_reason: order.reject_reason,
+        paid_at: order.paid_at,
+        type: order.type,
+        amount: order.amount,
+      });
+    }
+
+    // ==================== 支付 API ====================
+    if (req.method === 'POST' && pathname === 'payments') {
+      const { type, amount, timestamp, phone } = req.body;
+      const payment = {
+        id: Math.random().toString(36).substring(2, 9),
+        order_id: generateOrderId(),
+        provider: 'manual',
+        type,
+        amount: Number(amount),
+        timestamp: timestamp || new Date().toISOString(),
+        status: 'success',
+        phone,
+      };
+      payments.push(payment);
+
+      if (phone && type === 'monthly') {
+        const user = users.find(u => u.phone === phone);
+        if (user) {
+          user.is_vip = 1;
+          const currentExpiry = user.vip_expires_at ? new Date(user.vip_expires_at).getTime() : Date.now();
+          const newExpiry = Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000;
+          user.vip_expires_at = new Date(newExpiry).toISOString();
+        }
+      }
+
+      return res.json({ success: true, payment });
+    }
+
+    // ==================== 管理后台 API ====================
+    if (req.method === 'GET' && pathname === 'admin/users') {
+      return res.json({ users: users.map(mapUser).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) });
+    }
+
+    if (req.method === 'GET' && pathname === 'admin/payments') {
+      const sortedPayments = [...payments].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      return res.json({ payments: sortedPayments });
+    }
+
+    if (req.method === 'GET' && pathname === 'admin/stats') {
+      const totalRevenue = payments.filter(p => p.status === 'success').reduce((sum, p) => sum + p.amount, 0);
+      const totalOrders = payments.length;
+      const monthlyOrders = payments.filter(p => p.type === 'monthly').length;
+      const singleOrders = payments.filter(p => p.type === 'single').length;
+
+      const totalUsers = users.length;
+      const now = new Date().toISOString();
+      const activeVips = users.filter(u => u.is_vip && (!u.vip_expires_at || u.vip_expires_at > now)).length;
+
+      return res.json({
+        totalRevenue: totalRevenue.toFixed(2),
+        totalOrders,
+        monthlyOrders,
+        singleOrders,
+        totalUsers,
+        activeVips
+      });
+    }
+
+    // -------- 订单审核 API --------
+
+    if (req.method === 'GET' && pathname === 'admin/orders/pending') {
+      const pendingOrders = payments
+        .filter(p => p.status === 'pending_review')
+        .sort((a, b) => {
+          const aTime = a.proof_uploaded_at ? new Date(a.proof_uploaded_at).getTime() : 0;
+          const bTime = b.proof_uploaded_at ? new Date(b.proof_uploaded_at).getTime() : 0;
+          return bTime - aTime;
+        })
+        .map(p => ({
+          order_id: p.order_id,
+          phone: p.phone,
+          type: p.type,
+          amount: p.amount,
+          timestamp: p.timestamp,
+          proof_uploaded_at: p.proof_uploaded_at,
+          proof_base64: p.raw_notify,
+          user_email: p.user_email,
+        }));
+      return res.json({ orders: pendingOrders });
+    }
+
+    if (req.method === 'GET' && pathname === 'admin/orders/pending-count') {
+      const count = payments.filter(p => p.status === 'pending_review').length;
+      return res.json({ count });
+    }
+
+    if (req.method === 'POST' && pathname.startsWith('admin/orders/') && pathname.endsWith('/approve')) {
+      const orderId = pathname.split('/')[2];
+      const order = payments.find(p => p.order_id === orderId);
+      if (!order) return res.status(404).json({ success: false, error: '订单不存在' });
+      if (order.status !== 'pending_review') {
+        return res.status(400).json({ success: false, error: `订单当前状态不允许审核：${order.status}` });
+      }
+
+      const now = new Date().toISOString();
+      order.status = 'success';
+      order.paid_at = now;
+      order.reviewed_at = now;
+      order.reviewed_by = 'admin';
+
+      // 激活 VIP
+      if (order.type === 'monthly' && order.phone) {
+        const user = users.find(u => u.phone === order.phone);
+        if (user) {
+          user.is_vip = 1;
+          const currentExpiry = user.vip_expires_at ? new Date(user.vip_expires_at).getTime() : Date.now();
+          const newExpiry = new Date(Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000).toISOString();
+          user.vip_expires_at = newExpiry;
+        }
+      }
+
+      return res.json({ success: true });
+    }
+
+    if (req.method === 'POST' && pathname.startsWith('admin/orders/') && pathname.endsWith('/reject')) {
+      const orderId = pathname.split('/')[2];
+      const { reason } = req.body;
+      const rejectReason = String(reason || '未提供原因');
+
+      const order = payments.find(p => p.order_id === orderId);
+      if (!order) return res.status(404).json({ success: false, error: '订单不存在' });
+      if (order.status !== 'pending_review') {
+        return res.status(400).json({ success: false, error: `订单当前状态不允许审核：${order.status}` });
+      }
+
+      const now = new Date().toISOString();
+      order.status = 'rejected';
+      order.reject_reason = rejectReason;
+      order.reviewed_at = now;
+      order.reviewed_by = 'admin';
+
+      return res.json({ success: true });
+    }
+
+    // 404
+    return res.status(404).json({ success: false, error: 'API not found', path: pathname });
+
+  } catch (error) {
+    console.error('API Error:', error);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+}

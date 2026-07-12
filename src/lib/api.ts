@@ -13,15 +13,39 @@ export function apiUrl(path: string): string {
 }
 
 export async function apiGet<T = any>(path: string): Promise<T> {
-  const res = await fetch(apiUrl(path));
-  return res.json();
+  const url = apiUrl(path);
+  console.log('GET', url);
+  const res = await fetch(url);
+  console.log('Response status:', res.status);
+
+  const text = await res.text();
+  console.log('Response:', text.substring(0, 200));
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error('JSON parse error:', e);
+    throw new Error(`Invalid JSON response: ${text.substring(0, 50)}`);
+  }
 }
 
 export async function apiPost<T = any>(path: string, body?: any): Promise<T> {
-  const res = await fetch(apiUrl(path), {
+  const url = apiUrl(path);
+  console.log('POST', url, body);
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
-  return res.json();
+  console.log('Response status:', res.status);
+
+  const text = await res.text();
+  console.log('Response:', text.substring(0, 200));
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error('JSON parse error:', e);
+    throw new Error(`Invalid JSON response: ${text.substring(0, 50)}`);
+  }
 }
