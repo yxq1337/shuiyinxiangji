@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, CreditCard, TrendingUp, Settings, DollarSign, UserPlus, Calendar, Edit2 } from 'lucide-react';
+import { Users, CreditCard, TrendingUp, Settings, DollarSign, UserPlus, Calendar, Edit2, Check, XCircle, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiGet, apiPost } from '../lib/api';
 
@@ -38,6 +38,17 @@ interface AppSettings {
   wechatQrCode: string;
 }
 
+interface PendingOrder {
+  order_id: string;
+  phone: string;
+  type: string;
+  amount: number;
+  timestamp: string;
+  proof_uploaded_at: string;
+  proof_base64: string;
+  user_email: string | null;
+}
+
 export default function Admin() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -45,9 +56,13 @@ export default function Admin() {
   const [users, setUsers] = useState<User[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
+  const [pendingCount, setPendingCount] = useState<number>(0);
+  const [reviewLoading, setReviewLoading] = useState<string | null>(null);
+  const [enlargedImg, setEnlargedImg] = useState<string | null>(null);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'payments' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'review' | 'users' | 'payments' | 'settings'>('dashboard');
 
   useEffect(() => {
     if (!user?.isAdmin) {
@@ -60,16 +75,20 @@ export default function Admin() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statsRes, usersRes, paymentsRes, settingsRes] = await Promise.all([
+      const [statsRes, usersRes, paymentsRes, settingsRes, pendingRes, countRes] = await Promise.all([
         apiGet('/api/admin/stats'),
         apiGet('/api/admin/users'),
         apiGet('/api/admin/payments'),
         apiGet('/api/settings'),
+        apiGet('/api/admin/orders/pending'),
+        apiGet('/api/admin/orders/pending-count'),
       ]);
       setStats(statsRes);
       setUsers(usersRes.users);
       setPayments(paymentsRes.payments);
       setSettings(settingsRes);
+      setPendingOrders(pendingRes.orders || []);
+      setPendingCount(countRes.count || 0);
     } catch (e) {
       console.error('加载数据失败', e);
     } finally {
@@ -96,6 +115,37 @@ export default function Admin() {
     }
   };
 
+  const handleApprove = async (orderId: string) => {
+    if (!confirm(`确定通过订单 ${orderId}？`)) return;
+    setReviewLoading(orderId);
+    try {
+      const r = await apiPost(`/api/admin/orders/${orderId}/approve`);
+      if (r.success) {
+        await loadData();
+      } else {
+        alert(r.error || '操作失败');
+      }
+    } finally {
+      setReviewLoading(null);
+    }
+  };
+
+  const handleReject = async (orderId: string) => {
+    const reason = prompt('请填写拒绝原因：');
+    if (!reason) return;
+    setReviewLoading(orderId);
+    try {
+      const r = await apiPost(`/api/admin/orders/${orderId}/reject`, { reason });
+      if (r.success) {
+        await loadData();
+      } else {
+        alert(r.error || '操作失败');
+      }
+    } finally {
+      setReviewLoading(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -105,7 +155,8 @@ export default function Admin() {
   }
 
   const tabs = [
-    { id: 'dashboard', label: '仪表盘', icon: TrendingUp },
+    { id: 'dashboard', label: '仪表盘', icon: TrendingUp, badge: undefined },
+    { id: 'review', label: '支付审核', icon: Check, badge: pendingCount },
     { id: 'users', label: '用户管理', icon: Users },
     { id: 'payments', label: '支付记录', icon: CreditCard },
     { id: 'settings', label: '系统设置', icon: Settings },
@@ -126,7 +177,7 @@ export default function Admin() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors relative ${
                 activeTab === tab.id
                   ? 'bg-blue-50 text-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
@@ -134,6 +185,11 @@ export default function Admin() {
             >
               <tab.icon className="w-4 h-4" />
               <span>{tab.label}</span>
+              {tab.badge !== undefined && tab.badge > 0 && (
+                <span className="ml-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {tab.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -233,6 +289,102 @@ export default function Admin() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'review' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">待审核订单 ({pendingOrders.length})</h3>
+              <button
+                onClick={loadData}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                刷新
+              </button>
+            </div>
+            {pendingOrders.length === 0 ? (
+              <div className="bg-white rounded-xl p-12 border border-gray-200 text-center text-gray-500">
+                暂无待审核订单
+              </div>
+            ) : (
+              pendingOrders.map((order) => (
+                <div key={order.order_id} className="bg-white rounded-xl border border-gray-200 p-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <div className="mb-4">
+                        <p className="text-xs text-gray-500 mb-1">订单号</p>
+                        <code className="text-sm bg-gray-100 px-2 py-1 rounded">{order.order_id}</code>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">金额</p>
+                          <p className="font-semibold text-green-600">¥{order.amount}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">类型</p>
+                          <p>{order.type === 'monthly' ? '月度会员' : '单次付费'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">手机号</p>
+                          <p>{order.phone}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">上传时间</p>
+                          <p className="text-sm">{new Date(order.proof_uploaded_at).toLocaleString('zh-CN')}</p>
+                        </div>
+                      </div>
+                      {order.user_email && (
+                        <div className="mb-4">
+                          <p className="text-xs text-gray-500 mb-1">用户邮箱</p>
+                          <p className="text-sm">{order.user_email}</p>
+                        </div>
+                      )}
+                      <div className="flex gap-3">
+                        <button
+                          disabled={reviewLoading === order.order_id}
+                          onClick={() => handleApprove(order.order_id)}
+                          className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center"
+                        >
+                          <Check className="w-4 h-4 mr-1" /> 通过
+                        </button>
+                        <button
+                          disabled={reviewLoading === order.order_id}
+                          onClick={() => handleReject(order.order_id)}
+                          className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center"
+                        >
+                          <XCircle className="w-4 h-4 mr-1" /> 拒绝
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">付款截图</p>
+                      {order.proof_base64 ? (
+                        <img
+                          src={order.proof_base64}
+                          alt="付款截图"
+                          className="w-full rounded-lg border cursor-pointer hover:opacity-90"
+                          onClick={() => setEnlargedImg(order.proof_base64)}
+                        />
+                      ) : (
+                        <div className="bg-gray-100 rounded-lg p-8 text-center text-gray-400">
+                          <ImageIcon className="w-8 h-8 mx-auto" /> 无截图
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+
+            {enlargedImg && (
+              <div
+                className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4"
+                onClick={() => setEnlargedImg(null)}
+              >
+                <img src={enlargedImg} alt="放大" className="max-w-full max-h-full rounded" />
+              </div>
+            )}
           </div>
         )}
 
