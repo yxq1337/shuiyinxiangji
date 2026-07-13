@@ -232,17 +232,21 @@ export default function WatermarkApp() {
       ctx.fill();
       ctx.stroke();
 
-      // 文字颜色为黑色
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
+      // "真实可验"文字为黑色，带阴影
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 8 * scale;
+      ctx.shadowOffsetX = 2 * scale;
+      ctx.shadowOffsetY = 2 * scale;
       ctx.fillStyle = 'black';
       ctx.textBaseline = 'middle';
       ctx.font = `500 ${20 * scale}px sans-serif`;
       ctx.fillText(text2, rightEndX - boxPaddingX, line2Y + 1 * scale);
+
+      // "相机"恢复为白色
+      ctx.fillStyle = 'white';
       ctx.fillText('相机 ', boxX, line2Y + 1 * scale);
 
+      // "今日水印"保持白色
       const line1Y = line2Y - 20 * scale;
       ctx.textBaseline = 'bottom';
       ctx.font = `bold ${42 * scale}px sans-serif`;
