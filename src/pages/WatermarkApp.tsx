@@ -194,64 +194,50 @@ export default function WatermarkApp() {
       ctx.fillStyle = 'white';
       ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
 
+      // 先画"今日水印" - 最大、最粗
+      const line1Y = bottomStartY - 70 * scale;
       ctx.textBaseline = 'bottom';
-      ctx.font = `400 ${15 * scale}px sans-serif`;
-      ctx.fillText(`防伪 ${securityCode}`, rightEndX, bottomStartY);
-
-      const line2Y = bottomStartY - 30 * scale;
-      ctx.font = `500 ${20 * scale}px sans-serif`;
-      const text2 = '真实可验';
-      const text2Width = ctx.measureText(text2).width;
-      const boxPaddingX = 6 * scale;
-      const boxPaddingY = 4 * scale;
-
-      const boxWidth = text2Width + boxPaddingX * 2;
-      const boxHeight = 20 * scale + boxPaddingY * 2;
-      const boxX = rightEndX - boxWidth;
-      const boxY = line2Y - boxHeight / 2;
-
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 1.5 * scale;
-      ctx.shadowColor = 'transparent';
-
-      const radius = 4 * scale;
-
-      ctx.beginPath();
-      ctx.moveTo(boxX + radius, boxY);
-      ctx.lineTo(boxX + boxWidth - radius, boxY);
-      ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + radius);
-      ctx.lineTo(boxX + boxWidth, boxY + boxHeight - radius);
-      ctx.quadraticCurveTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - radius, boxY + boxHeight);
-      ctx.lineTo(boxX + radius, boxY + boxHeight);
-      ctx.quadraticCurveTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - radius);
-      ctx.lineTo(boxX, boxY + radius);
-      ctx.quadraticCurveTo(boxX, boxY, boxX + radius, boxY);
-      ctx.closePath();
-
-      ctx.fill();
-      ctx.stroke();
-
-      // "真实可验"文字为黑色，带阴影
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-      ctx.shadowBlur = 8 * scale;
-      ctx.shadowOffsetX = 2 * scale;
-      ctx.shadowOffsetY = 2 * scale;
-      ctx.fillStyle = 'black';
-      ctx.textBaseline = 'middle';
-      ctx.font = `500 ${20 * scale}px sans-serif`;
-      ctx.fillText(text2, rightEndX - boxPaddingX, line2Y + 1 * scale);
-
-      // "相机"恢复为白色
-      ctx.fillStyle = 'white';
-      ctx.fillText('相机 ', boxX, line2Y + 1 * scale);
-
-      // "今日水印"保持白色
-      const line1Y = line2Y - 20 * scale;
-      ctx.textBaseline = 'bottom';
-      ctx.font = `bold ${42 * scale}px sans-serif`;
+      ctx.font = `bold ${50 * scale}px sans-serif`;
       ctx.fillStyle = 'white';
       ctx.fillText('今日水印', rightEndX, line1Y);
+
+      // 画"相机"和"真实可验"
+      const line2Y = line1Y + 35 * scale;
+      const text2 = '真实可验';
+      const text2Width = ctx.measureText(text2).width;
+      const cameraText = '相机';
+      const cameraTextWidth = ctx.measureText(cameraText).width;
+
+      // "真实可验"的背景框 - 半透明白色
+      const boxPaddingX = 8 * scale;
+      const boxPaddingY = 6 * scale;
+      const boxWidth = text2Width + boxPaddingX * 2;
+      const boxHeight = 28 * scale;
+      const boxX = rightEndX - boxWidth;
+      const boxY = line2Y - boxHeight;
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.shadowColor = 'transparent';
+      ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+
+      // "真实可验"文字为黑色
+      ctx.shadowColor = 'transparent';
+      ctx.fillStyle = 'black';
+      ctx.textBaseline = 'bottom';
+      ctx.font = `600 ${22 * scale}px sans-serif`;
+      ctx.fillText(text2, rightEndX - boxPaddingX, line2Y);
+
+      // "相机"为白色，在"真实可验"左边
+      ctx.fillStyle = 'white';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      const cameraX = boxX - 10 * scale;
+      ctx.fillText(cameraText, cameraX, line2Y);
+
+      // 最底部画"防伪"码
+      ctx.textBaseline = 'bottom';
+      ctx.font = `400 ${15 * scale}px sans-serif`;
+      ctx.fillStyle = 'white';
+      ctx.fillText(`防伪 ${securityCode}`, rightEndX, bottomStartY);
     }
   }, [imageObj, time, date, day, weather, temperature, location, securityCode]);
 
