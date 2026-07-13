@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Download, Image as ImageIcon, Crown, Lock, Unlock } from 'lucide-react';
+import { Upload, Download, Image as ImageIcon, Crown, Lock, Unlock, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function WatermarkApp() {
@@ -288,7 +288,16 @@ export default function WatermarkApp() {
           </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-fit">
-            <h2 className="text-xl font-semibold text-gray-800 mb-6">水印设置</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">水印设置</h2>
+              <button
+                onClick={getCurrentDateTime}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm"
+              >
+                <RefreshCw className="w-4 h-4" />
+                同步当前时间
+              </button>
+            </div>
 
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
