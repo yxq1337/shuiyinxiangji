@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { apiGet, apiPost } from '../lib/api';
 
 interface PricingPlan {
-  type: 'single' | 'monthly' | 'yearly';
+  type: 'monthly' | 'yearly' | 'permanent';
   name: string;
   price: number;
   originalPrice?: number;
@@ -15,7 +15,7 @@ interface PricingPlan {
 }
 
 export default function Pricing() {
-  const [selectedPlan, setSelectedPlan] = useState<'single' | 'monthly'>('monthly');
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | 'permanent'>('monthly');
   const [settings, setSettings] = useState<{ singlePrice: number; monthlyPrice: number }>({
     singlePrice: 1.99,
     monthlyPrice: 9.99,
@@ -30,13 +30,6 @@ export default function Pricing() {
 
   const plans: PricingPlan[] = [
     {
-      type: 'single',
-      name: '单次付费',
-      price: settings.singlePrice,
-      description: '解锁一次高清无水印导出',
-      features: ['高清无水印', '保留原图分辨率', '所有水印模板'],
-    },
-    {
       type: 'monthly',
       name: '月度会员',
       price: settings.monthlyPrice,
@@ -44,6 +37,22 @@ export default function Pricing() {
       description: '30天内无限次使用所有功能',
       features: ['无限次导出', '所有高级模板', '批量处理', '专属客服'],
       popular: true,
+    },
+    {
+      type: 'yearly',
+      name: '年度会员',
+      price: settings.monthlyPrice * 10,
+      originalPrice: settings.monthlyPrice * 12,
+      description: '365天内无限次使用所有功能',
+      features: ['无限次导出', '所有高级模板', '批量处理', '专属客服', '优先支持'],
+    },
+    {
+      type: 'permanent',
+      name: '永久会员',
+      price: settings.monthlyPrice * 30,
+      originalPrice: settings.monthlyPrice * 50,
+      description: '永久无限次使用所有功能',
+      features: ['无限次导出', '所有高级模板', '批量处理', '专属客服', '优先支持', '永久更新'],
     },
   ];
 
@@ -110,7 +119,7 @@ export default function Pricing() {
             </button>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid md:grid-cols-3 gap-8">
             {plans.map((plan) => (
               <div
                 key={plan.type}

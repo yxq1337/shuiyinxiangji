@@ -27,5 +27,8 @@ export function validateBase64Image(data: string): { ok: boolean; error?: string
 }
 
 export function orderTitle(type: string): string {
-  return type === 'monthly' ? '水印相机 - 月度会员' : '水印相机 - 单次付费';
+  if (type === 'monthly') return '水印相机 - 月度会员';
+  if (type === 'yearly') return '水印相机 - 年度会员';
+  if (type === 'permanent') return '水印相机 - 永久会员';
+  return '水印相机 - 会员';
 }

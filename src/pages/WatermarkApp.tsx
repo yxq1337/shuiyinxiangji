@@ -7,9 +7,9 @@ export default function WatermarkApp() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [imageObj, setImageObj] = useState<HTMLImageElement | null>(null);
   const [showVipModal, setShowVipModal] = useState(false);
-  const [useCount, setUseCount] = useState(0);
+  const [todayUseCount, setTodayUseCount] = useState(0);
+  const [lastUseDate, setLastUseDate] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
-  const FREE_LIMIT = 3;
 
   const [time, setTime] = useState('20:58');
   const [date, setDate] = useState('2026-04-06');
@@ -74,11 +74,23 @@ export default function WatermarkApp() {
 
   const isVip = user?.isVip;
   const isFreeUser = !isVip;
-  const shouldShowLimit = isFreeUser && useCount >= FREE_LIMIT;
+  const shouldShowLimit = isFreeUser && todayUseCount >= 1;
 
   useEffect(() => {
-    const saved = localStorage.getItem('watermarkUseCount');
-    if (saved) setUseCount(parseInt(saved, 10));
+    const today = new Date().toDateString();
+    const savedDate = localStorage.getItem('watermarkLastUseDate');
+    const savedCount = localStorage.getItem('watermarkTodayUseCount');
+
+    if (savedDate !== today) {
+      // 新的一天，重置使用次数
+      setTodayUseCount(0);
+      setLastUseDate(today);
+      localStorage.setItem('watermarkLastUseDate', today);
+      localStorage.setItem('watermarkTodayUseCount', '0');
+    } else if (savedCount) {
+      setTodayUseCount(parseInt(savedCount, 10));
+      setLastUseDate(savedDate);
+    }
   }, []);
 
   const processFile = (file: File) => {
@@ -220,12 +232,12 @@ export default function WatermarkApp() {
       ctx.fill();
       ctx.stroke();
 
-      // 确保文字颜色为白色
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-      ctx.shadowBlur = 8 * scale;
-      ctx.shadowOffsetX = 2 * scale;
-      ctx.shadowOffsetY = 2 * scale;
-      ctx.fillStyle = 'white';
+      // 文字颜色为黑色
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.fillStyle = 'black';
       ctx.textBaseline = 'middle';
       ctx.font = `500 ${20 * scale}px sans-serif`;
       ctx.fillText(text2, rightEndX - boxPaddingX, line2Y + 1 * scale);
@@ -251,9 +263,12 @@ export default function WatermarkApp() {
       link.click();
 
       if (isFreeUser) {
-        const newCount = useCount + 1;
-        setUseCount(newCount);
-        localStorage.setItem('watermarkUseCount', newCount.toString());
+        const today = new Date().toDateString();
+        const newCount = todayUseCount + 1;
+        setTodayUseCount(newCount);
+        setLastUseDate(today);
+        localStorage.setItem('watermarkLastUseDate', today);
+        localStorage.setItem('watermarkTodayUseCount', newCount.toString());
       }
     }
   };
@@ -305,7 +320,7 @@ export default function WatermarkApp() {
                     <>
                       <Lock className="w-12 h-12 text-red-400 mb-4" />
                       <p className="mb-2 text-sm text-red-600 font-medium">今日免费次数已用完</p>
-                      <p className="text-xs text-red-500">升级VIP解锁无限使用</p>
+                      <p className="text-xs text-red-500">明天再来，或升级VIP解锁无限使用</p>
                     </>
                   ) : (
                     <>

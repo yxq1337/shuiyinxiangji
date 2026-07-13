@@ -177,7 +177,7 @@ app.post('/api/orders/create', async (c) => {
   const body = await c.req.json();
   const { type, phone, email } = body;
   if (!phone || !type) return c.json({ success: false, error: '缺少 phone 或 type' }, 400);
-  if (type !== 'single' && type !== 'monthly') {
+  if (type !== 'monthly' && type !== 'yearly' && type !== 'permanent') {
     return c.json({ success: false, error: '无效的套餐类型' }, 400);
   }
 
@@ -186,9 +186,13 @@ app.post('/api/orders/create', async (c) => {
   if (!user) return c.json({ success: false, error: '用户不存在' }, 404);
 
   const settings = await db.prepare('SELECT single_price, monthly_price, wechat_qr_url FROM settings WHERE id = 1').first();
-  const singlePrice = Number(settings?.single_price ?? 1.99);
   const monthlyPrice = Number(settings?.monthly_price ?? 9.90);
-  const amount = type === 'single' ? singlePrice : monthlyPrice;
+  let amount = monthlyPrice;
+  if (type === 'yearly') {
+    amount = monthlyPrice * 10;
+  } else if (type === 'permanent') {
+    amount = monthlyPrice * 30;
+  }
   const qrUrl = String(settings?.wechat_qr_url || '/wechat-pay-qr.png');
 
   const orderId = generateOrderId();
@@ -405,16 +409,33 @@ app.post('/api/admin/orders/:id/approve', async (c) => {
     .bind(now, now, orderId)
     .run();
 
-  // 激活 VIP（monthly）
-  if (order.type === 'monthly' && order.phone) {
+  // 激活 VIP
+  if (order.phone) {
     const user = await db.prepare('SELECT * FROM users WHERE phone = ?').bind(order.phone).first();
     if (user) {
-      const currentExpiry = user.vip_expires_at ? new Date(user.vip_expires_at as string).getTime() : Date.now();
-      const newExpiry = new Date(Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000).toISOString();
-      await db
-        .prepare('UPDATE users SET is_vip = 1, vip_expires_at = ? WHERE phone = ?')
-        .bind(newExpiry, order.phone)
-        .run();
+      let daysToAdd = 0;
+      if (order.type === 'monthly') {
+        daysToAdd = 30;
+      } else if (order.type === 'yearly') {
+        daysToAdd = 365;
+      } else if (order.type === 'permanent') {
+        // 永久会员，设置一个非常远的日期
+        const permanentExpiry = new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString();
+        await db
+          .prepare('UPDATE users SET is_vip = 1, vip_expires_at = ? WHERE phone = ?')
+          .bind(permanentExpiry, order.phone)
+          .run();
+        // 永久会员直接返回，不进行后续处理
+      }
+
+      if (daysToAdd > 0) {
+        const currentExpiry = user.vip_expires_at ? new Date(user.vip_expires_at as string).getTime() : Date.now();
+        const newExpiry = new Date(Math.max(currentExpiry, Date.now()) + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
+        await db
+          .prepare('UPDATE users SET is_vip = 1, vip_expires_at = ? WHERE phone = ?')
+          .bind(newExpiry, order.phone)
+          .run();
+      }
     }
   }
 
