@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, CreditCard, TrendingUp, Settings, DollarSign, UserPlus, Calendar, Edit2, Check, XCircle, Image as ImageIcon } from 'lucide-react';
+import { Users, CreditCard, TrendingUp, Settings, DollarSign, UserPlus, Calendar, Edit2, Check, XCircle, Image as ImageIcon, Save, UserCog } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiGet, apiPost } from '../lib/api';
 
@@ -63,6 +63,9 @@ export default function Admin() {
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'review' | 'users' | 'payments' | 'settings'>('dashboard');
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editVipForm, setEditVipForm] = useState({ isVip: false, vipDays: 30 });
+  const [savingUser, setSavingUser] = useState(false);
 
   useEffect(() => {
     if (!user?.isAdmin) {
@@ -143,6 +146,33 @@ export default function Admin() {
       }
     } finally {
       setReviewLoading(null);
+    }
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setEditVipForm({
+      isVip: user.isVip,
+      vipDays: 30,
+    });
+  };
+
+  const handleSaveUserVip = async () => {
+    if (!editingUser) return;
+    setSavingUser(true);
+    try {
+      const r = await apiPost(`/api/admin/users/${editingUser.id}/set-vip`, {
+        isVip: editVipForm.isVip,
+        vipDays: editVipForm.vipDays,
+      });
+      if (r.success) {
+        await loadData();
+        setEditingUser(null);
+      } else {
+        alert(r.error || '操作失败');
+      }
+    } finally {
+      setSavingUser(false);
     }
   };
 
@@ -388,6 +418,90 @@ export default function Admin() {
           </div>
         )}
 
+        {editingUser && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">编辑用户会员</h3>
+                <button
+                  onClick={() => setEditingUser(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm text-gray-500">手机号</p>
+                  <p className="font-medium text-gray-900">{editingUser.phone}</p>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      checked={editVipForm.isVip}
+                      onChange={(e) => setEditVipForm({ ...editVipForm, isVip: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                    <span className="text-gray-700">设为 VIP 会员</span>
+                  </label>
+
+                  {editVipForm.isVip && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        会员时长（天）
+                      </label>
+                      <input
+                        type="number"
+                        value={editVipForm.vipDays}
+                        onChange={(e) => setEditVipForm({ ...editVipForm, vipDays: parseInt(e.target.value) || 30 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        min="1"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        从今天开始计算，{editVipForm.vipDays} 天后到期
+                      </p>
+                    </div>
+                  )}
+
+                  {editingUser.isVip && editingUser.vipExpiresAt && (
+                    <div className="bg-yellow-50 rounded-lg p-4">
+                      <p className="text-sm text-yellow-800">
+                        当前到期时间：{new Date(editingUser.vipExpiresAt).toLocaleDateString('zh-CN')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => setEditingUser(null)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleSaveUserVip}
+                    disabled={savingUser}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
+                  >
+                    {savingUser ? (
+                      <span>保存中...</span>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        保存
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'users' && (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
@@ -420,6 +534,12 @@ export default function Admin() {
                     ) : (
                       <span className="text-gray-400 text-sm">普通用户</span>
                     )}
+                    <button
+                      onClick={() => handleEditUser(u)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      <UserCog className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
               ))}

@@ -468,6 +468,36 @@ app.post('/api/admin/orders/:id/reject', async (c) => {
   return c.json({ success: true });
 });
 
+// -------- 手动设置用户 VIP --------
+app.post('/api/admin/users/:id/set-vip', async (c) => {
+  const userId = c.req.param('id');
+  const body = await c.req.json();
+  const isVip = !!body.isVip;
+  const vipDays = Number(body.vipDays || 30);
+
+  const db = c.env.DB;
+  const user = await db.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
+  if (!user) return c.json({ success: false, error: '用户不存在' }, 404);
+
+  let vipExpiresAt: string | null = null;
+
+  if (isVip) {
+    const currentExpiry = user.vip_expires_at ? new Date(user.vip_expires_at as string).getTime() : Date.now();
+    vipExpiresAt = new Date(Math.max(currentExpiry, Date.now()) + vipDays * 24 * 60 * 60 * 1000).toISOString();
+    await db
+      .prepare('UPDATE users SET is_vip = 1, vip_expires_at = ? WHERE id = ?')
+      .bind(vipExpiresAt, userId)
+      .run();
+  } else {
+    await db
+      .prepare('UPDATE users SET is_vip = 0, vip_expires_at = NULL WHERE id = ?')
+      .bind(userId)
+      .run();
+  }
+
+  return c.json({ success: true });
+});
+
 // ==================== 工具函数 ====================
 function mapUser(row: any) {
   return {

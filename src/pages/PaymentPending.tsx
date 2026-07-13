@@ -1,11 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, Clock, XCircle, Upload, Copy, MessageCircle } from 'lucide-react';
-import { apiGet, apiPost } from '../lib/api';
-import { compressImage } from '../lib/imageCompress';
+import { Check, Clock, XCircle, MessageCircle } from 'lucide-react';
+import { apiGet } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
-type Status = 'created' | 'pending_review' | 'success' | 'rejected';
+type Status = 'created' | 'success' | 'rejected';
 
 interface OrderInfo {
   order_id: string;
@@ -24,9 +23,6 @@ export default function PaymentPending() {
   const [status, setStatus] = useState<Status>('created');
   const [rejectReason, setRejectReason] = useState<string>('');
   const [orderInfo, setOrderInfo] = useState<OrderInfo | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string>('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -45,7 +41,7 @@ export default function PaymentPending() {
   }, [orderId]);
 
   useEffect(() => {
-    if (status !== 'pending_review') return;
+    if (status !== 'created') return;
     timerRef.current = window.setInterval(() => {
       fetchStatus();
     }, 15000);
@@ -74,43 +70,13 @@ export default function PaymentPending() {
             amount: data.amount,
             title: data.type === 'monthly' ? '水印相机 - 月度会员' : '水印相机 - 单次付费',
             qr_url: '/wechat-pay-qr.png',
-            instructions: `请扫码支付 ¥${data.amount.toFixed(2)}，付款时请在备注中填写订单号：${data.order_id}`,
+            instructions: `请扫码支付 ¥${data.amount.toFixed(2)}`,
           });
         }
       }
     } catch (e) {
       console.error('查询订单状态失败', e);
     }
-  }
-
-  async function handleFileChoose(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setError('');
-    try {
-      const base64 = await compressImage(file, 800, 0.75);
-      const data = await apiPost(`/api/orders/${encodeURIComponent(orderId)}/upload-proof`, {
-        proof_base64: base64,
-      });
-      if (data.success) {
-        setStatus('pending_review');
-      } else {
-        setError(data.error || '上传失败');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '上传失败');
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  }
-
-  function copyOrderId() {
-    navigator.clipboard.writeText(orderId).then(
-      () => alert('订单号已复制'),
-      () => alert('复制失败，请手动选择')
-    );
   }
 
   if (!orderId) {
@@ -149,42 +115,14 @@ export default function PaymentPending() {
               <p className="text-sm text-gray-600 mt-1">{orderInfo?.title || '会员'}</p>
             </div>
 
-            <div className="bg-yellow-50 rounded-lg p-4 mb-6 border border-yellow-200">
-              <p className="text-sm text-yellow-900 mb-2">
-                <strong>⚠️ 重要：</strong>付款时请在备注栏填写以下订单号：
-              </p>
-              <div className="flex items-center bg-white rounded p-2 border">
-                <code className="flex-1 text-sm break-all">{orderId}</code>
-                <button
-                  onClick={copyOrderId}
-                  className="ml-2 flex items-center text-blue-600 text-sm px-2 py-1 rounded hover:bg-blue-50"
-                >
-                  <Copy className="w-4 h-4 mr-1" /> 复制
-                </button>
-              </div>
+            <div className="bg-blue-50 rounded-lg p-6 text-center mb-6">
+              <Clock className="w-12 h-12 text-blue-600 mx-auto mb-3 animate-pulse" />
+              <h3 className="text-lg font-bold text-gray-900 mb-2">等待到账</h3>
+              <p className="text-sm text-gray-600 mb-2">支付后会自动激活 VIP</p>
+              <p className="text-sm text-gray-500">通常几分钟内完成</p>
             </div>
 
             <div className="border-t pt-6">
-              <p className="text-center text-sm text-gray-600 mb-3">支付完成后，上传付款截图以便审核</p>
-              <input
-                type="file"
-                ref={fileInputRef}
-                accept="image/*"
-                onChange={handleFileChoose}
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
-              >
-                <Upload className="w-5 h-5 mr-2" />
-                {uploading ? '上传中...' : '上传付款截图'}
-              </button>
-              {error && <p className="text-red-500 text-sm mt-2 text-center">{error}</p>}
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-gray-200">
               <div className="bg-blue-50 rounded-lg p-6 text-center">
                 <MessageCircle className="w-12 h-12 text-blue-600 mx-auto mb-3" />
                 <h3 className="text-lg font-bold text-gray-900 mb-2">遇到问题？</h3>
@@ -197,21 +135,6 @@ export default function PaymentPending() {
               </div>
             </div>
           </>
-        )}
-
-        {status === 'pending_review' && (
-          <div className="text-center py-8">
-            <Clock className="w-16 h-16 text-blue-500 mx-auto mb-4 animate-pulse" />
-            <h1 className="text-xl font-bold text-gray-900 mb-2">审核中</h1>
-            <p className="text-gray-600 mb-2">通常几分钟内完成，最长 24 小时</p>
-            <p className="text-sm text-gray-400 mt-4 break-all">订单号：{orderId}</p>
-            <button
-              onClick={() => navigate('/my')}
-              className="mt-6 text-sm text-blue-600 hover:underline"
-            >
-              先返回个人中心，稍后再看
-            </button>
-          </div>
         )}
 
         {status === 'success' && (
