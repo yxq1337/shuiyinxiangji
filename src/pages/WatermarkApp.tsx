@@ -220,6 +220,7 @@ export default function WatermarkApp() {
       ctx.fill();
       ctx.stroke();
 
+      // 确保文字颜色为白色
       ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
       ctx.shadowBlur = 8 * scale;
       ctx.shadowOffsetX = 2 * scale;
