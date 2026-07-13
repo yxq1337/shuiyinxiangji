@@ -8,6 +8,7 @@ export default function WatermarkApp() {
   const [imageObj, setImageObj] = useState<HTMLImageElement | null>(null);
   const [showVipModal, setShowVipModal] = useState(false);
   const [useCount, setUseCount] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const FREE_LIMIT = 3;
 
   const [time, setTime] = useState('20:58');
@@ -80,18 +81,41 @@ export default function WatermarkApp() {
     if (saved) setUseCount(parseInt(saved, 10));
   }, []);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const processFile = (file: File) => {
     if (shouldShowLimit) {
       setShowVipModal(true);
       return;
     }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setImageSrc(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setImageSrc(event.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      processFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      processFile(file);
     }
   };
 
@@ -216,8 +240,8 @@ export default function WatermarkApp() {
     }
     if (canvasRef.current) {
       const link = document.createElement('a');
-      link.download = `watermark_${Date.now()}.png`;
-      link.href = canvasRef.current.toDataURL('image/png');
+      link.download = `watermark_${Date.now()}.jpg`;
+      link.href = canvasRef.current.toDataURL('image/jpeg', 0.95);
       link.click();
 
       if (isFreeUser) {
@@ -258,9 +282,18 @@ export default function WatermarkApp() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col items-center justify-center min-h-[500px] relative overflow-hidden">
             {!imageSrc ? (
-              <label className={`flex flex-col items-center justify-center w-full h-full cursor-pointer border-2 border-dashed rounded-xl transition-colors ${
-                shouldShowLimit ? 'border-red-300 hover:bg-red-50' : 'border-gray-300 hover:bg-gray-50'
-              }`}>
+              <label
+                className={`flex flex-col items-center justify-center w-full h-full cursor-pointer border-2 border-dashed rounded-xl transition-colors ${
+                  shouldShowLimit
+                    ? 'border-red-300 hover:bg-red-50'
+                    : isDragging
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-300 hover:bg-gray-50'
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   {shouldShowLimit ? (
                     <>
