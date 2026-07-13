@@ -18,6 +18,30 @@ export default function WatermarkApp() {
   const [location, setLocation] = useState('嘉兴市南湖区建设街道·南杨新村');
   const [securityCode, setSecurityCode] = useState('KDRDCUU93S444');
 
+  // 获取当前时间和日期
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    setTime(`${hours}:${minutes}`);
+
+    const year = now.getFullYear();
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const dayNum = now.getDate().toString().padStart(2, '0');
+    setDate(`${year}-${month}-${dayNum}`);
+
+    const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+    setDay(days[now.getDay()]);
+  };
+
+  // 页面加载时设置当前时间
+  useEffect(() => {
+    getCurrentDateTime();
+    // 每分钟更新一次时间
+    const timer = setInterval(getCurrentDateTime, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
