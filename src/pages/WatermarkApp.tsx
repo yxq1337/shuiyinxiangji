@@ -281,7 +281,7 @@ export default function WatermarkApp() {
             <div className="flex items-center space-x-3">
               <Crown className="w-5 h-5 text-yellow-600" />
               <span className="text-yellow-800 text-sm">
-                免费用户今日剩余 <strong>{Math.max(0, FREE_LIMIT - useCount)}</strong> 次导出
+                免费用户今日剩余 <strong>{Math.max(0, 1 - todayUseCount)}</strong> 次导出
               </span>
             </div>
             <button
