@@ -196,17 +196,17 @@ export default function WatermarkApp() {
 
       ctx.textBaseline = 'bottom';
       ctx.font = `400 ${15 * scale}px sans-serif`;
-      ctx.fillText(`防伪 ${securityCode}`, rightEndX, bottomStartY);
+      ctx.fillText(`防伪  ${securityCode}`, rightEndX, bottomStartY);
 
       const line2Y = bottomStartY - 30 * scale;
-      ctx.font = `500 ${20 * scale}px sans-serif`;
+      ctx.font = `500 ${28 * scale}px sans-serif`;
       const text2 = '真实可验';
       const text2Width = ctx.measureText(text2).width;
-      const boxPaddingX = 6 * scale;
-      const boxPaddingY = 4 * scale;
+      const boxPaddingX = 8 * scale;
+      const boxPaddingY = 6 * scale;
 
       const boxWidth = text2Width + boxPaddingX * 2;
-      const boxHeight = 20 * scale + boxPaddingY * 2;
+      const boxHeight = 28 * scale + boxPaddingY * 2;
       const boxX = rightEndX - boxWidth;
       const boxY = line2Y - boxHeight / 2;
 
@@ -239,14 +239,14 @@ export default function WatermarkApp() {
       ctx.shadowOffsetY = 2 * scale;
       ctx.fillStyle = 'black';
       ctx.textBaseline = 'middle';
-      ctx.font = `500 ${20 * scale}px sans-serif`;
+      ctx.font = `500 ${28 * scale}px sans-serif`;
       ctx.fillText(text2, rightEndX - boxPaddingX, line2Y + 1 * scale);
 
-      // "相机"恢复为白色
+      // "相机"恢复为白色，字体也加大
       ctx.fillStyle = 'white';
       ctx.fillText('相机 ', boxX, line2Y + 1 * scale);
 
-      // "今日水印"保持白色
+      // "今日水印"保持白色，字体最大
       const line1Y = line2Y - 20 * scale;
       ctx.textBaseline = 'bottom';
       ctx.font = `bold ${42 * scale}px sans-serif`;
