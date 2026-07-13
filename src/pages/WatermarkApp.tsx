@@ -32,6 +32,31 @@ export default function WatermarkApp() {
 
     const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
     setDay(days[now.getDay()]);
+
+    // 根据季节生成天气和温度
+    const monthNum = now.getMonth();
+    let temp, weatherList;
+
+    if (monthNum >= 5 && monthNum <= 7) {
+      // 夏季
+      temp = Math.floor(Math.random() * 10) + 28;
+      weatherList = ['晴', '多云', '晴间多云', '晴转多云', '多云转晴'];
+    } else if (monthNum >= 8 && monthNum <= 10) {
+      // 秋季
+      temp = Math.floor(Math.random() * 12) + 18;
+      weatherList = ['多云', '晴', '阴', '晴间多云', '多云转晴'];
+    } else if (monthNum >= 11 || monthNum <= 1) {
+      // 冬季
+      temp = Math.floor(Math.random() * 10) + 2;
+      weatherList = ['晴', '多云', '阴', '晴间多云', '多云转晴'];
+    } else {
+      // 春季
+      temp = Math.floor(Math.random() * 10) + 15;
+      weatherList = ['晴', '多云', '晴间多云', '多云转晴', '晴转多云'];
+    }
+
+    setTemperature(`${temp}°C`);
+    setWeather(weatherList[Math.floor(Math.random() * weatherList.length)]);
   };
 
   // 页面加载时设置当前时间
