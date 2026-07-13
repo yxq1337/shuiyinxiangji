@@ -7,9 +7,9 @@ export default function WatermarkApp() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [imageObj, setImageObj] = useState<HTMLImageElement | null>(null);
   const [showVipModal, setShowVipModal] = useState(false);
-  const [todayUseCount, setTodayUseCount] = useState(0);
-  const [lastUseDate, setLastUseDate] = useState<string>('');
+  const [useCount, setUseCount] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const FREE_LIMIT = 3;
 
   const [time, setTime] = useState('20:58');
   const [date, setDate] = useState('2026-04-06');
@@ -74,23 +74,11 @@ export default function WatermarkApp() {
 
   const isVip = user?.isVip;
   const isFreeUser = !isVip;
-  const shouldShowLimit = isFreeUser && todayUseCount >= 1;
+  const shouldShowLimit = isFreeUser && useCount >= FREE_LIMIT;
 
   useEffect(() => {
-    const today = new Date().toDateString();
-    const savedDate = localStorage.getItem('watermarkLastUseDate');
-    const savedCount = localStorage.getItem('watermarkTodayUseCount');
-
-    if (savedDate !== today) {
-      // 新的一天，重置使用次数
-      setTodayUseCount(0);
-      setLastUseDate(today);
-      localStorage.setItem('watermarkLastUseDate', today);
-      localStorage.setItem('watermarkTodayUseCount', '0');
-    } else if (savedCount) {
-      setTodayUseCount(parseInt(savedCount, 10));
-      setLastUseDate(savedDate);
-    }
+    const saved = localStorage.getItem('watermarkUseCount');
+    if (saved) setUseCount(parseInt(saved, 10));
   }, []);
 
   const processFile = (file: File) => {
@@ -196,17 +184,17 @@ export default function WatermarkApp() {
 
       ctx.textBaseline = 'bottom';
       ctx.font = `400 ${15 * scale}px sans-serif`;
-      ctx.fillText(`防伪  ${securityCode}`, rightEndX, bottomStartY);
+      ctx.fillText(`防伪 ${securityCode}`, rightEndX, bottomStartY);
 
       const line2Y = bottomStartY - 30 * scale;
-      ctx.font = `500 ${28 * scale}px sans-serif`;
+      ctx.font = `500 ${20 * scale}px sans-serif`;
       const text2 = '真实可验';
       const text2Width = ctx.measureText(text2).width;
-      const boxPaddingX = 8 * scale;
-      const boxPaddingY = 6 * scale;
+      const boxPaddingX = 6 * scale;
+      const boxPaddingY = 4 * scale;
 
       const boxWidth = text2Width + boxPaddingX * 2;
-      const boxHeight = 28 * scale + boxPaddingY * 2;
+      const boxHeight = 20 * scale + boxPaddingY * 2;
       const boxX = rightEndX - boxWidth;
       const boxY = line2Y - boxHeight / 2;
 
@@ -232,21 +220,17 @@ export default function WatermarkApp() {
       ctx.fill();
       ctx.stroke();
 
-      // "真实可验"文字为黑色，带阴影
+      // 确保文字颜色为白色
       ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
       ctx.shadowBlur = 8 * scale;
       ctx.shadowOffsetX = 2 * scale;
       ctx.shadowOffsetY = 2 * scale;
-      ctx.fillStyle = 'black';
-      ctx.textBaseline = 'middle';
-      ctx.font = `500 ${28 * scale}px sans-serif`;
-      ctx.fillText(text2, rightEndX - boxPaddingX, line2Y + 1 * scale);
-
-      // "相机"恢复为白色，字体也加大
       ctx.fillStyle = 'white';
+      ctx.textBaseline = 'middle';
+      ctx.font = `500 ${20 * scale}px sans-serif`;
+      ctx.fillText(text2, rightEndX - boxPaddingX, line2Y + 1 * scale);
       ctx.fillText('相机 ', boxX, line2Y + 1 * scale);
 
-      // "今日水印"保持白色，字体最大
       const line1Y = line2Y - 20 * scale;
       ctx.textBaseline = 'bottom';
       ctx.font = `bold ${42 * scale}px sans-serif`;
@@ -267,12 +251,9 @@ export default function WatermarkApp() {
       link.click();
 
       if (isFreeUser) {
-        const today = new Date().toDateString();
-        const newCount = todayUseCount + 1;
-        setTodayUseCount(newCount);
-        setLastUseDate(today);
-        localStorage.setItem('watermarkLastUseDate', today);
-        localStorage.setItem('watermarkTodayUseCount', newCount.toString());
+        const newCount = useCount + 1;
+        setUseCount(newCount);
+        localStorage.setItem('watermarkUseCount', newCount.toString());
       }
     }
   };
@@ -285,7 +266,7 @@ export default function WatermarkApp() {
             <div className="flex items-center space-x-3">
               <Crown className="w-5 h-5 text-yellow-600" />
               <span className="text-yellow-800 text-sm">
-                免费用户今日剩余 <strong>{Math.max(0, 1 - todayUseCount)}</strong> 次导出
+                免费用户今日剩余 <strong>{Math.max(0, FREE_LIMIT - useCount)}</strong> 次导出
               </span>
             </div>
             <button
@@ -324,7 +305,7 @@ export default function WatermarkApp() {
                     <>
                       <Lock className="w-12 h-12 text-red-400 mb-4" />
                       <p className="mb-2 text-sm text-red-600 font-medium">今日免费次数已用完</p>
-                      <p className="text-xs text-red-500">明天再来，或升级VIP解锁无限使用</p>
+                      <p className="text-xs text-red-500">升级VIP解锁无限使用</p>
                     </>
                   ) : (
                     <>
