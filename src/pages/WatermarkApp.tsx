@@ -137,127 +137,104 @@ export default function WatermarkApp() {
 
       canvas.width = imageObj.width;
       canvas.height = imageObj.height;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
       ctx.drawImage(imageObj, 0, 0);
 
-      // Reference canvas size for scaling
-      const REF_CANVAS = { width: 286, height: 126 };
-      const scale = Math.min(canvas.width / REF_CANVAS.width, canvas.height / REF_CANVAS.height);
-      const originX = Math.max(0, canvas.width - REF_CANVAS.width * scale);
+      const scale = canvas.width / 1080;
+      const paddingX = 40 * scale;
+      const paddingY = 50 * scale;
 
-      // Font sizes based on scale
-      const FONTS = {
-        top: `500 ${Math.max(14, 36 * scale)}px sans-serif`,
-        middle: `500 ${Math.max(12, 24 * scale)}px sans-serif`,
-        tag: `500 ${Math.max(11, 22 * scale)}px sans-serif`,
-        small: `400 ${Math.max(9, 16 * scale)}px sans-serif`
-      };
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 8 * scale;
+      ctx.shadowOffsetX = 2 * scale;
+      ctx.shadowOffsetY = 2 * scale;
 
-      // Soft shadow helper function
-      const drawSoftText = (
-        x: number,
-        y: number,
-        text: string,
-        font: string,
-        fill: string = 'rgba(255, 255, 255, 238)'
-      ) => {
-        ctx.save();
-        ctx.font = font;
-        ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.33)';
-        ctx.shadowBlur = 0.55 * scale;
-        ctx.shadowOffsetX = 1 * scale;
-        ctx.shadowOffsetY = 1 * scale;
-        ctx.fillStyle = fill;
-        ctx.fillText(text, x, y);
-        ctx.restore();
-      };
+      const leftStartX = paddingX;
+      const bottomStartY = canvas.height - paddingY;
 
-      // Draw location text (bottom left)
-      drawSoftText(
-        40 * scale,
-        canvas.height - 50 * scale,
-        location,
-        FONTS.small.replace('400', '500')
-      );
+      ctx.fillStyle = 'white';
+      ctx.font = `500 ${34 * scale}px sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(location, leftStartX, bottomStartY);
 
-      // Draw time (left middle)
-      const timeY = canvas.height - 50 * scale - 60 * scale;
-      drawSoftText(
-        40 * scale,
-        timeY,
-        time,
-        `bold ${Math.max(28, 100 * scale)}px sans-serif`
-      );
+      const timeY = bottomStartY - 60 * scale;
+      ctx.font = `bold ${100 * scale}px sans-serif`;
+      ctx.fillText(time, leftStartX, timeY + 10 * scale);
       const timeWidth = ctx.measureText(time).width;
 
-      // Draw vertical line next to time
-      const lineX = 40 * scale + timeWidth + 25 * scale;
+      const lineX = leftStartX + timeWidth + 25 * scale;
       const lineY = timeY - 85 * scale;
       const lineHeight = 90 * scale;
       ctx.fillStyle = '#EAB308';
+      ctx.shadowColor = 'transparent';
       ctx.fillRect(lineX, lineY, 6 * scale, lineHeight);
 
-      // Draw date and weather below time
-      drawSoftText(
-        40 * scale + timeWidth + 25 * scale,
-        timeY - 45 * scale,
-        date,
-        FONTS.middle
-      );
-      drawSoftText(
-        40 * scale + timeWidth + 25 * scale,
-        timeY + 5 * scale,
-        `${day}  ${weather} ${temperature}`,
-        FONTS.middle
-      );
+      ctx.fillStyle = 'white';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      const infoX = lineX + 25 * scale;
+      ctx.font = `500 ${32 * scale}px sans-serif`;
+      ctx.fillText(date, infoX, timeY - 45 * scale);
+      ctx.fillText(`${day}  ${weather} ${temperature}`, infoX, timeY + 5 * scale);
 
-      // Draw bottom right text: 防伪 + securityCode
-      const bottomTextX = canvas.width - 40 * scale;
-      const bottomTextY = canvas.height - 50 * scale;
-      drawSoftText(
-        bottomTextX,
-        bottomTextY,
-        `防伪 ${securityCode}`,
-        FONTS.small
-      );
+      const rightEndX = canvas.width - paddingX;
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'white';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
 
-      // Draw "真实可验" box and text
-      const tagText = '真实可验';
-      const tagPadX = 6 * scale;
-      const tagPadY = 2 * scale;
-      const tagBoxHeight = Math.max(20 * scale, parseInt(FONTS.tag.split(' ')[0]) * 1.2);
-      const tagBoxWidth = ctx.measureText(tagText).width + tagPadX * 2;
-      const tagX = bottomTextX - ctx.measureText(`防伪 ${securityCode}`).width - 25 * scale - tagBoxWidth;
-      const tagY = bottomTextY - tagBoxHeight / 2;
+      ctx.textBaseline = 'bottom';
+      ctx.font = `400 ${15 * scale}px sans-serif`;
+      ctx.fillText(`防伪 ${securityCode}`, rightEndX, bottomStartY);
 
-      // Draw rounded rectangle background
-      ctx.fillStyle = 'rgba(225, 225, 225, 0.85)';
+      const line2Y = bottomStartY - 30 * scale;
+      ctx.font = `500 ${20 * scale}px sans-serif`;
+      const text2 = '真实可验';
+      const text2Width = ctx.measureText(text2).width;
+      const boxPaddingX = 6 * scale;
+      const boxPaddingY = 4 * scale;
+
+      const boxWidth = text2Width + boxPaddingX * 2;
+      const boxHeight = 20 * scale + boxPaddingY * 2;
+      const boxX = rightEndX - boxWidth;
+      const boxY = line2Y - boxHeight / 2;
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 1.5 * scale;
+      ctx.shadowColor = 'transparent';
+
+      const radius = 4 * scale;
+
       ctx.beginPath();
-      ctx.roundRect(tagX, tagY, tagBoxWidth, tagBoxHeight, 2 * scale);
+      ctx.moveTo(boxX + radius, boxY);
+      ctx.lineTo(boxX + boxWidth - radius, boxY);
+      ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + radius);
+      ctx.lineTo(boxX + boxWidth, boxY + boxHeight - radius);
+      ctx.quadraticCurveTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - radius, boxY + boxHeight);
+      ctx.lineTo(boxX + radius, boxY + boxHeight);
+      ctx.quadraticCurveTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - radius);
+      ctx.lineTo(boxX, boxY + radius);
+      ctx.quadraticCurveTo(boxX, boxY, boxX + radius, boxY);
+      ctx.closePath();
+
       ctx.fill();
+      ctx.stroke();
 
-      // Draw tag text
-      ctx.font = FONTS.tag;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 8 * scale;
+      ctx.shadowOffsetX = 2 * scale;
+      ctx.shadowOffsetY = 2 * scale;
+      ctx.fillStyle = 'white';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(18, 18, 18, Math.min(255, 238 + 12))';
-      ctx.fillText(tagText, tagX + tagPadX, tagY + tagPadY);
+      ctx.font = `500 ${20 * scale}px sans-serif`;
+      ctx.fillText(text2, rightEndX - boxPaddingX, line2Y + 1 * scale);
+      ctx.fillText('相机 ', boxX, line2Y + 1 * scale);
 
-      // Draw "今日水印" at top right
-      drawSoftText(
-        bottomTextX,
-        50 * scale,
-        '今日水印',
-        FONTS.top
-      );
-
-      // Draw "相机" text
-      drawSoftText(
-        tagX - 7 * scale - ctx.measureText('相机').width,
-        middleY,
-        '相机',
-        FONTS.middle
-      );
+      const line1Y = line2Y - 20 * scale;
+      ctx.textBaseline = 'bottom';
+      ctx.font = `bold ${42 * scale}px sans-serif`;
+      ctx.fillStyle = 'white';
+      ctx.fillText('今日水印', rightEndX, line1Y);
     }
   }, [imageObj, time, date, day, weather, temperature, location, securityCode]);
 
