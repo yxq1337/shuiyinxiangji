@@ -78,22 +78,52 @@ export default function Admin() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statsRes, usersRes, paymentsRes, settingsRes, pendingRes, countRes] = await Promise.all([
-        apiGet('/api/admin/stats'),
-        apiGet('/api/admin/users'),
-        apiGet('/api/admin/payments'),
-        apiGet('/api/settings'),
-        apiGet('/api/admin/orders/pending'),
-        apiGet('/api/admin/orders/pending-count'),
-      ]);
-      setStats(statsRes);
-      setUsers(usersRes.users);
-      setPayments(paymentsRes.payments);
-      setSettings(settingsRes);
-      setPendingOrders(pendingRes.orders || []);
-      setPendingCount(countRes.count || 0);
-    } catch (e) {
-      console.error('加载数据失败', e);
+      // 分开调用，一个失败不影响其他
+      try {
+        const statsRes = await apiGet('/api/admin/stats');
+        setStats(statsRes);
+      } catch (e) {
+        console.error('加载统计失败', e);
+      }
+
+      try {
+        const usersRes = await apiGet('/api/admin/users');
+        setUsers(usersRes.users || []);
+      } catch (e) {
+        console.error('加载用户失败', e);
+        setUsers([]);
+      }
+
+      try {
+        const paymentsRes = await apiGet('/api/admin/payments');
+        setPayments(paymentsRes.payments || []);
+      } catch (e) {
+        console.error('加载支付记录失败', e);
+        setPayments([]);
+      }
+
+      try {
+        const settingsRes = await apiGet('/api/settings');
+        setSettings(settingsRes);
+      } catch (e) {
+        console.error('加载设置失败', e);
+      }
+
+      try {
+        const pendingRes = await apiGet('/api/admin/orders/pending');
+        setPendingOrders(pendingRes.orders || []);
+      } catch (e) {
+        console.error('加载待审核订单失败', e);
+        setPendingOrders([]);
+      }
+
+      try {
+        const countRes = await apiGet('/api/admin/orders/pending-count');
+        setPendingCount(countRes.count || 0);
+      } catch (e) {
+        console.error('加载待审核数量失败', e);
+        setPendingCount(0);
+      }
     } finally {
       setLoading(false);
     }
@@ -166,11 +196,15 @@ export default function Admin() {
         vipDays: editVipForm.vipDays,
       });
       if (r.success) {
-        await loadData();
+        // 先关闭弹窗，再刷新数据
         setEditingUser(null);
+        await loadData();
       } else {
         alert(r.error || '操作失败');
       }
+    } catch (e) {
+      console.error('保存失败', e);
+      alert('保存失败，请稍后重试');
     } finally {
       setSavingUser(false);
     }
