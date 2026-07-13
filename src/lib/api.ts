@@ -4,8 +4,8 @@
  * - 生产环境（Cloudflare Pages）：请求发到 Workers（通过环境变量配置）
  */
 
-// 优先使用环境变量，其次使用相对路径（同域部署时）
-const API_BASE = (import.meta as any).env?.VITE_API_BASE || '';
+// 优先使用环境变量，其次使用 Cloudflare Worker URL
+const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'https://shuiyinxiangji-api.yxq1337.workers.dev';
 
 export function apiUrl(path: string): string {
   if (path.startsWith('http')) return path;
