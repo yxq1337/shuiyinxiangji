@@ -220,15 +220,21 @@ export default function WatermarkApp() {
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = 'white';
+      // 确保文字颜色为白色
       ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 8 * scale;
+      ctx.shadowOffsetX = 2 * scale;
+      ctx.shadowOffsetY = 2 * scale;
+      ctx.fillStyle = 'white';
       ctx.textBaseline = 'middle';
+      ctx.font = `500 ${20 * scale}px sans-serif`;
       ctx.fillText(text2, rightEndX - boxPaddingX, line2Y + 1 * scale);
       ctx.fillText('相机 ', boxX, line2Y + 1 * scale);
 
       const line1Y = line2Y - 20 * scale;
       ctx.textBaseline = 'bottom';
       ctx.font = `bold ${42 * scale}px sans-serif`;
+      ctx.fillStyle = 'white';
       ctx.fillText('今日水印', rightEndX, line1Y);
     }
   }, [imageObj, time, date, day, weather, temperature, location, securityCode]);
