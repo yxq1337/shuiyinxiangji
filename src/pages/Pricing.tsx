@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Crown, CreditCard } from 'lucide-react';
+import { Check, Crown, CreditCard, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiGet, apiPost } from '../lib/api';
 
@@ -21,11 +21,24 @@ export default function Pricing() {
     monthlyPrice: 9.99,
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    apiGet('/api/settings').then((data) => setSettings(data));
+    const loadSettings = async () => {
+      try {
+        const data = await apiGet('/api/settings');
+        if (data && typeof data.monthlyPrice === 'number') {
+          setSettings(data);
+        }
+      } catch (error) {
+        console.error('加载配置失败:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadSettings();
   }, []);
 
   const plans: PricingPlan[] = [
@@ -79,6 +92,17 @@ export default function Pricing() {
       setIsProcessing(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">加载中...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
