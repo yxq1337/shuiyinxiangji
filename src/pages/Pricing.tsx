@@ -16,9 +16,11 @@ interface PricingPlan {
 
 export default function Pricing() {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | 'permanent'>('monthly');
-  const [settings, setSettings] = useState<{ singlePrice: number; monthlyPrice: number }>({
+  const [settings, setSettings] = useState<{ singlePrice: number; monthlyPrice: number; yearlyPrice: number; permanentPrice: number }>({
     singlePrice: 1.99,
     monthlyPrice: 9.99,
+    yearlyPrice: 19.90,
+    permanentPrice: 29.90,
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,7 +32,12 @@ export default function Pricing() {
       try {
         const data = await apiGet('/api/settings');
         if (data && typeof data.monthlyPrice === 'number') {
-          setSettings(data);
+          setSettings({
+            singlePrice: data.singlePrice || 1.99,
+            monthlyPrice: data.monthlyPrice || 9.99,
+            yearlyPrice: data.yearlyPrice || 19.90,
+            permanentPrice: data.permanentPrice || 29.90,
+          });
         }
       } catch (error) {
         console.error('加载配置失败:', error);
@@ -54,16 +61,16 @@ export default function Pricing() {
     {
       type: 'yearly',
       name: '年度会员',
-      price: settings.monthlyPrice * 10,
-      originalPrice: settings.monthlyPrice * 12,
+      price: settings.yearlyPrice,
+      originalPrice: 118.80,
       description: '365天内无限次使用所有功能',
       features: ['无限次导出', '所有高级模板', '批量处理', '专属客服', '优先支持'],
     },
     {
       type: 'permanent',
       name: '永久会员',
-      price: settings.monthlyPrice * 30,
-      originalPrice: settings.monthlyPrice * 50,
+      price: settings.permanentPrice,
+      originalPrice: 299.00,
       description: '永久无限次使用所有功能',
       features: ['无限次导出', '所有高级模板', '批量处理', '专属客服', '优先支持', '永久更新'],
     },
@@ -85,6 +92,14 @@ export default function Pricing() {
         setIsProcessing(false);
         return;
       }
+      // 保存订单信息到本地缓存
+      localStorage.setItem(`order_info_${data.order_id}`, JSON.stringify({
+        order_id: data.order_id,
+        amount: data.amount,
+        title: data.title,
+        qr_url: data.qr_url,
+        instructions: data.instructions,
+      }));
       navigate(`/payment/pending?order_id=${data.order_id}`);
     } catch (e) {
       console.error('创建订单失败', e);

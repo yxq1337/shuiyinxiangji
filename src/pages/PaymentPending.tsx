@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, Clock, XCircle, MessageCircle } from 'lucide-react';
 import { apiGet } from '../lib/api';
@@ -27,7 +27,6 @@ export default function PaymentPending() {
 
   useEffect(() => {
     if (!orderId) {
-      setError('缺少订单号');
       return;
     }
     const cached = localStorage.getItem(`order_info_${orderId}`);
@@ -65,10 +64,24 @@ export default function PaymentPending() {
         setStatus(data.status as Status);
         if (data.reject_reason) setRejectReason(data.reject_reason);
         if (!orderInfo && data.amount) {
+          let title;
+          switch (data.type) {
+            case 'monthly':
+              title = '水印相机 - 月度会员';
+              break;
+            case 'yearly':
+              title = '水印相机 - 年度会员';
+              break;
+            case 'permanent':
+              title = '水印相机 - 永久会员';
+              break;
+            default:
+              title = '水印相机 - 单次付费';
+          }
           setOrderInfo({
             order_id: data.order_id,
             amount: data.amount,
-            title: data.type === 'monthly' ? '水印相机 - 月度会员' : '水印相机 - 单次付费',
+            title,
             qr_url: '/wechat-pay-qr.png',
             instructions: `请扫码支付 ¥${data.amount.toFixed(2)}`,
           });

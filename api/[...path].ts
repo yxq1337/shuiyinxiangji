@@ -37,6 +37,8 @@ let users: User[] = [
 let appSettings = {
   singlePrice: 1.99,
   monthlyPrice: 9.90,
+  yearlyPrice: 19.90,
+  permanentPrice: 29.90,
   paymentAccount: 'admin@example.com',
   alipayQrCode: '',
   wechatQrCode: '',
@@ -71,7 +73,10 @@ function validateBase64Image(data: string): { ok: boolean; error?: string } {
 }
 
 function orderTitle(type: string): string {
-  return type === 'monthly' ? '水印相机 - 月度会员' : '水印相机 - 单次付费';
+  if (type === 'monthly') return '水印相机 - 月度会员';
+  if (type === 'yearly') return '水印相机 - 年度会员';
+  if (type === 'permanent') return '水印相机 - 永久会员';
+  return '水印相机 - 单次付费';
 }
 
 function mapUser(row: any): any {
@@ -172,6 +177,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json({
         singlePrice: appSettings.singlePrice,
         monthlyPrice: appSettings.monthlyPrice,
+        yearlyPrice: appSettings.yearlyPrice,
+        permanentPrice: appSettings.permanentPrice,
         paymentAccount: appSettings.paymentAccount,
         alipayQrCode: appSettings.alipayQrCode,
         wechatQrCode: appSettings.wechatQrCode,
@@ -179,9 +186,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST' && pathname === 'settings') {
-      const { singlePrice, monthlyPrice, paymentAccount, alipayQrCode, wechatQrCode } = req.body;
+      const { singlePrice, monthlyPrice, yearlyPrice, permanentPrice, paymentAccount, alipayQrCode, wechatQrCode } = req.body;
       if (singlePrice !== undefined) appSettings.singlePrice = Number(singlePrice);
       if (monthlyPrice !== undefined) appSettings.monthlyPrice = Number(monthlyPrice);
+      if (yearlyPrice !== undefined) appSettings.yearlyPrice = Number(yearlyPrice);
+      if (permanentPrice !== undefined) appSettings.permanentPrice = Number(permanentPrice);
       if (paymentAccount !== undefined) appSettings.paymentAccount = paymentAccount;
       if (alipayQrCode !== undefined) appSettings.alipayQrCode = alipayQrCode;
       if (wechatQrCode !== undefined) appSettings.wechatQrCode = wechatQrCode;
@@ -193,7 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST' && pathname === 'orders/create') {
       const { type, phone, email } = req.body;
       if (!phone || !type) return res.status(400).json({ success: false, error: '缺少 phone 或 type' });
-      if (type !== 'single' && type !== 'monthly') {
+      if (type !== 'single' && type !== 'monthly' && type !== 'yearly' && type !== 'permanent') {
         return res.status(400).json({ success: false, error: '无效的套餐类型' });
       }
 
@@ -202,7 +211,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const singlePrice = appSettings.singlePrice;
       const monthlyPrice = appSettings.monthlyPrice;
-      const amount = type === 'single' ? singlePrice : monthlyPrice;
+      const yearlyPrice = appSettings.yearlyPrice;
+      const permanentPrice = appSettings.permanentPrice;
+
+      let amount;
+      switch (type) {
+        case 'single':
+          amount = singlePrice;
+          break;
+        case 'monthly':
+          amount = monthlyPrice;
+          break;
+        case 'yearly':
+          amount = yearlyPrice;
+          break;
+        case 'permanent':
+          amount = permanentPrice;
+          break;
+        default:
+          amount = monthlyPrice;
+      }
+
       const qrUrl = appSettings.wechat_qr_url || '/wechat-pay-qr.png';
 
       const orderId = generateOrderId();
@@ -285,13 +314,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
       payments.push(payment);
 
-      if (phone && type === 'monthly') {
+      if (phone) {
         const user = users.find(u => u.phone === phone);
         if (user) {
           user.is_vip = 1;
           const currentExpiry = user.vip_expires_at ? new Date(user.vip_expires_at).getTime() : Date.now();
-          const newExpiry = Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000;
-          user.vip_expires_at = new Date(newExpiry).toISOString();
+          let newExpiry;
+          if (type === 'monthly') {
+            newExpiry = Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000;
+          } else if (type === 'yearly') {
+            newExpiry = Math.max(currentExpiry, Date.now()) + 365 * 24 * 60 * 60 * 1000;
+          } else if (type === 'permanent') {
+            newExpiry = Date.now() + 100 * 365 * 24 * 60 * 60 * 1000; // 100 years as permanent
+            user.vip_expires_at = null; // permanent
+          } else {
+            newExpiry = Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000;
+          }
+          if (type !== 'permanent') {
+            user.vip_expires_at = new Date(newExpiry).toISOString();
+          }
         }
       }
 
@@ -371,13 +412,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       order.reviewed_by = 'admin';
 
       // 激活 VIP
-      if (order.type === 'monthly' && order.phone) {
+      if (order.phone) {
         const user = users.find(u => u.phone === order.phone);
         if (user) {
           user.is_vip = 1;
           const currentExpiry = user.vip_expires_at ? new Date(user.vip_expires_at).getTime() : Date.now();
-          const newExpiry = new Date(Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000).toISOString();
-          user.vip_expires_at = newExpiry;
+          let newExpiry;
+          if (order.type === 'monthly') {
+            newExpiry = Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000;
+          } else if (order.type === 'yearly') {
+            newExpiry = Math.max(currentExpiry, Date.now()) + 365 * 24 * 60 * 60 * 1000;
+          } else if (order.type === 'permanent') {
+            newExpiry = Date.now() + 100 * 365 * 24 * 60 * 60 * 1000; // 100 years as permanent
+            user.vip_expires_at = null; // permanent
+          } else {
+            newExpiry = Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000;
+          }
+          if (order.type !== 'permanent') {
+            user.vip_expires_at = new Date(newExpiry).toISOString();
+          }
         }
       }
 
