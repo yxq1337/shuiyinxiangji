@@ -233,7 +233,7 @@ export default function WatermarkApp() {
 
       const line1Y = line2Y - 20 * scale;
       ctx.textBaseline = 'bottom';
-      ctx.font = `bold ${42 * scale}px sans-serif`;
+      ctx.font = `bold ${36 * scale}px sans-serif`;
       ctx.fillStyle = 'white';
       ctx.fillText('今日水印', rightEndX, line1Y);
     }
