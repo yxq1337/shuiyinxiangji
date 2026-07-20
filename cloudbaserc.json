@@ -1,0 +1,43 @@
+{
+  "version": "2.0",
+  "envId": "shuiyinxiangji-d2gbpqs4wea28beb5",
+  "functionRoot": "cloudfunctions",
+  "functions": [
+    {
+      "name": "api",
+      "envVariables": {
+        "NODE_ENV": "production",
+        "ADMIN_USERNAME": "admin",
+        "ADMIN_PASSWORD": "vip1337"
+      },
+      "runtime": "Nodejs20.19",
+      "timeout": 60,
+      "memorySize": 512,
+      "handler": "index.main"
+    }
+  ],
+  "framework": {
+    "plugins": {
+      "function": {
+        "use": "@cloudbase/framework-plugin-function",
+        "inputs": {
+          "functionRootPath": "cloudfunctions",
+          "functions": [
+            {
+              "name": "api",
+              "envVariables": {
+                "NODE_ENV": "production",
+                "ADMIN_USERNAME": "admin",
+                "ADMIN_PASSWORD": "vip1337"
+              },
+              "runtime": "Nodejs20.19",
+              "timeout": 60,
+              "memorySize": 512,
+              "handler": "index.main"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

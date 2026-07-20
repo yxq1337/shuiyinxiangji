@@ -38,6 +38,8 @@ let users: User[] = [
 let appSettings = {
   singlePrice: 1.99,
   monthlyPrice: 9.90,
+  yearlyPrice: 19.90,
+  permanentPrice: 29.90,
   paymentAccount: 'admin@example.com',
   alipayQrCode: '',
   wechatQrCode: '',
@@ -72,7 +74,10 @@ function validateBase64Image(data: string): { ok: boolean; error?: string } {
 }
 
 function orderTitle(type: string): string {
-  return type === 'monthly' ? '水印相机 - 月度会员' : '水印相机 - 单次付费';
+  if (type === 'monthly') return '水印相机 - 月度会员';
+  if (type === 'yearly') return '水印相机 - 年度会员';
+  if (type === 'permanent') return '水印相机 - 永久会员';
+  return '水印相机 - 单次付费';
 }
 
 function mapUser(row: any): any {
@@ -163,6 +168,8 @@ async function startServer() {
     res.json({
       singlePrice: appSettings.singlePrice,
       monthlyPrice: appSettings.monthlyPrice,
+      yearlyPrice: appSettings.yearlyPrice,
+      permanentPrice: appSettings.permanentPrice,
       paymentAccount: appSettings.paymentAccount,
       alipayQrCode: appSettings.alipayQrCode,
       wechatQrCode: appSettings.wechatQrCode,
@@ -170,9 +177,11 @@ async function startServer() {
   });
 
   app.post("/api/settings", (req, res) => {
-    const { singlePrice, monthlyPrice, paymentAccount, alipayQrCode, wechatQrCode } = req.body;
+    const { singlePrice, monthlyPrice, yearlyPrice, permanentPrice, paymentAccount, alipayQrCode, wechatQrCode } = req.body;
     if (singlePrice !== undefined) appSettings.singlePrice = Number(singlePrice);
     if (monthlyPrice !== undefined) appSettings.monthlyPrice = Number(monthlyPrice);
+    if (yearlyPrice !== undefined) appSettings.yearlyPrice = Number(yearlyPrice);
+    if (permanentPrice !== undefined) appSettings.permanentPrice = Number(permanentPrice);
     if (paymentAccount !== undefined) appSettings.paymentAccount = paymentAccount;
     if (alipayQrCode !== undefined) appSettings.alipayQrCode = alipayQrCode;
     if (wechatQrCode !== undefined) appSettings.wechatQrCode = wechatQrCode;
@@ -184,16 +193,30 @@ async function startServer() {
   app.post('/api/orders/create', (req, res) => {
     const { type, phone, email } = req.body;
     if (!phone || !type) return res.status(400).json({ success: false, error: '缺少 phone 或 type' });
-    if (type !== 'single' && type !== 'monthly') {
+    if (!['single', 'monthly', 'yearly', 'permanent'].includes(type)) {
       return res.status(400).json({ success: false, error: '无效的套餐类型' });
     }
 
     const user = users.find(u => u.phone === phone);
     if (!user) return res.status(404).json({ success: false, error: '用户不存在' });
 
-    const singlePrice = appSettings.singlePrice;
-    const monthlyPrice = appSettings.monthlyPrice;
-    const amount = type === 'single' ? singlePrice : monthlyPrice;
+    let amount;
+    switch (type) {
+      case 'single':
+        amount = appSettings.singlePrice;
+        break;
+      case 'monthly':
+        amount = appSettings.monthlyPrice;
+        break;
+      case 'yearly':
+        amount = appSettings.yearlyPrice;
+        break;
+      case 'permanent':
+        amount = appSettings.permanentPrice;
+        break;
+      default:
+        amount = appSettings.monthlyPrice;
+    }
     const qrUrl = appSettings.wechat_qr_url || '/wechat-pay-qr.png';
 
     const orderId = generateOrderId();
@@ -218,7 +241,7 @@ async function startServer() {
       amount,
       title: orderTitle(type),
       qr_url: qrUrl,
-      instructions: `请扫码支付 ¥${amount.toFixed(2)}，付款时请在备注中填写订单号：${orderId}`,
+      instructions: `请扫码支付 ¥${amount.toFixed(2)}，付款时请在备注填写订单号：${orderId}`,
     });
   });
 
@@ -235,7 +258,7 @@ async function startServer() {
     const order = payments.find(p => p.order_id === orderId);
     if (!order) return res.status(404).json({ success: false, error: '订单不存在' });
     if (order.status !== 'created' && order.status !== 'pending_review') {
-      return res.status(400).json({ success: false, error: `订单当前状态不允许上传：${order.status}` });
+      return res.status(400).json({ success: false, error: `订单当前状态不允许审核：${order.status}` });
     }
 
     const now = new Date().toISOString();
@@ -276,13 +299,24 @@ async function startServer() {
     };
     payments.push(payment);
 
-    if (phone && type === 'monthly') {
+    if (phone) {
       const user = users.find(u => u.phone === phone);
       if (user) {
         user.is_vip = 1;
         const currentExpiry = user.vip_expires_at ? new Date(user.vip_expires_at).getTime() : Date.now();
-        const newExpiry = Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000;
-        user.vip_expires_at = new Date(newExpiry).toISOString();
+        let newExpiry;
+        if (type === 'monthly') {
+          newExpiry = Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000;
+        } else if (type === 'yearly') {
+          newExpiry = Math.max(currentExpiry, Date.now()) + 365 * 24 * 60 * 60 * 1000;
+        } else if (type === 'permanent') {
+          user.vip_expires_at = null;
+        } else {
+          newExpiry = Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000;
+        }
+        if (type !== 'permanent') {
+          user.vip_expires_at = new Date(newExpiry).toISOString();
+        }
       }
     }
 
@@ -303,6 +337,8 @@ async function startServer() {
     const totalRevenue = payments.filter(p => p.status === 'success').reduce((sum, p) => sum + p.amount, 0);
     const totalOrders = payments.length;
     const monthlyOrders = payments.filter(p => p.type === 'monthly').length;
+    const yearlyOrders = payments.filter(p => p.type === 'yearly').length;
+    const permanentOrders = payments.filter(p => p.type === 'permanent').length;
     const singleOrders = payments.filter(p => p.type === 'single').length;
 
     const totalUsers = users.length;
@@ -313,6 +349,8 @@ async function startServer() {
       totalRevenue: totalRevenue.toFixed(2),
       totalOrders,
       monthlyOrders,
+      yearlyOrders,
+      permanentOrders,
       singleOrders,
       totalUsers,
       activeVips
@@ -362,13 +400,24 @@ async function startServer() {
     order.reviewed_by = 'admin';
 
     // 激活 VIP
-    if (order.type === 'monthly' && order.phone) {
+    if (order.phone) {
       const user = users.find(u => u.phone === order.phone);
       if (user) {
         user.is_vip = 1;
         const currentExpiry = user.vip_expires_at ? new Date(user.vip_expires_at).getTime() : Date.now();
-        const newExpiry = new Date(Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000).toISOString();
-        user.vip_expires_at = newExpiry;
+        let newExpiry;
+        if (order.type === 'monthly') {
+          newExpiry = Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000;
+        } else if (order.type === 'yearly') {
+          newExpiry = Math.max(currentExpiry, Date.now()) + 365 * 24 * 60 * 60 * 1000;
+        } else if (order.type === 'permanent') {
+          user.vip_expires_at = null;
+        } else {
+          newExpiry = Math.max(currentExpiry, Date.now()) + 30 * 24 * 60 * 60 * 1000;
+        }
+        if (order.type !== 'permanent') {
+          user.vip_expires_at = new Date(newExpiry).toISOString();
+        }
       }
     }
 
