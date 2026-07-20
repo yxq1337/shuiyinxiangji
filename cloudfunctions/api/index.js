@@ -372,13 +372,18 @@ exports.main = async (event, context) => {
 
     // ==================== 订单 API ====================
 
-    if (httpMethod === 'POST' && path.startsWith('/orders/') && path.endsWith('/create')) {
-      const { type, phone, email } = body || {};
+    if ((httpMethod === 'POST' || httpMethod === 'GET') && path.startsWith('/orders/') && path.endsWith('/create')) {
+      // 优先从 body 取，其次从 query 取（event.queryStringParameters 或 event.query）
+      const params = { ...(body || {}), ...(event.queryStringParameters || {}), ...(event.query || {}) };
+      const { type, phone, email } = params;
+
+      console.log('Create order params:', { type, phone, email: email ? '***' : undefined });
+
       if (!phone || !type) {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ success: false, error: '缺少 phone 或 type' })
+          body: JSON.stringify({ success: false, error: '缺少 phone 或 type', debug: { hasBody: !!body, bodyType: typeof body, eventKeys: Object.keys(event) } })
         };
       }
 
@@ -435,9 +440,11 @@ exports.main = async (event, context) => {
         body: JSON.stringify({
           success: true,
           orderId,
+          order_id: orderId,
           amount,
           title: orderTitle(type),
           qrUrl,
+          qr_url: qrUrl,
           instructions: `请扫码支付 ¥${amount.toFixed(2)}，付款时请在备注填写订单号：${orderId}`
         })
       };
@@ -511,9 +518,12 @@ exports.main = async (event, context) => {
         body: JSON.stringify({
           success: true,
           orderId: order.orderId,
+          order_id: order.orderId,
           status: order.status,
           rejectReason: order.rejectReason,
+          reject_reason: order.rejectReason,
           paidAt: order.paidAt,
+          paid_at: order.paidAt,
           type: order.type,
           amount: order.amount
         })
