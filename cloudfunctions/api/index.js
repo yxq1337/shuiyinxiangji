@@ -762,6 +762,50 @@ exports.main = async (event, context) => {
       };
     }
 
+    // -------- 手动设置用户 VIP --------
+    if ((httpMethod === 'POST' || httpMethod === 'GET') && path.match(/^\/admin\/users\/[^/]+\/set-vip$/)) {
+      const userId = path.split('/')[3];
+      const params = { ...(body || {}), ...(event.queryStringParameters || {}), ...(event.query || {}) };
+      const isVip = !!params.isVip;
+      const vipDays = Number(params.vipDays || 30);
+
+      console.log('Set VIP:', { userId, isVip, vipDays });
+
+      const userResult = await usersCollection.doc(userId).get();
+      if (!userResult.data.length) {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ success: false, error: '用户不存在' })
+        };
+      }
+
+      const user = userResult.data[0];
+      let vipExpiresAt = null;
+
+      if (isVip) {
+        const currentExpiry = user.vipExpiresAt ? new Date(user.vipExpiresAt).getTime() : Date.now();
+        vipExpiresAt = new Date(Math.max(currentExpiry, Date.now()) + vipDays * 24 * 60 * 60 * 1000).toISOString();
+        await usersCollection.doc(userId).update({
+          isVip: true,
+          vipExpiresAt,
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        await usersCollection.doc(userId).update({
+          isVip: false,
+          vipExpiresAt: null,
+          updatedAt: new Date().toISOString()
+        });
+      }
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ success: true })
+      };
+    }
+
     // 404
     return {
       statusCode: 404,
