@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Camera, User, Crown, Settings, LogOut } from 'lucide-react';
+import { Camera, User, Crown, Settings, LogOut, Home, Grid3X3 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Navbar() {
@@ -21,17 +21,36 @@ export default function Navbar() {
         <div className="flex justify-between h-16">
           <div className="flex items-center space-x-8">
             <Link to="/" className="flex items-center space-x-2">
-              <Camera className="w-8 h-8 text-blue-600" />
-              <span className="font-bold text-xl text-gray-900">水印相机 Pro</span>
+              <Camera className="w-7 h-7 text-blue-600" />
+              <span className="font-bold text-lg text-gray-900">图片工具箱</span>
             </Link>
             <div className="hidden md:flex items-center space-x-6">
               <Link
                 to="/"
-                className={`text-sm font-medium transition-colors ${
+                className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
                   isActive('/') ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                水印工具
+                <Home className="w-4 h-4" />
+                首页
+              </Link>
+              <Link
+                to="/camera"
+                className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                  isActive('/camera') ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Camera className="w-4 h-4" />
+                水印相机
+              </Link>
+              <Link
+                to="/tools"
+                className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                  location.pathname.startsWith('/tool') || isActive('/tools') ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Grid3X3 className="w-4 h-4" />
+                全部工具
               </Link>
               {user && (
                 <Link
