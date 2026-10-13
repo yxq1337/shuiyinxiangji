@@ -110,7 +110,7 @@ export default function Pricing() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="flex-1 bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
           <p className="text-gray-600">加载中...</p>
@@ -121,7 +121,7 @@ export default function Pricing() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="flex-1 bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center">
           <p className="text-gray-600 mb-4">请先登录后再购买</p>
           <button
@@ -136,7 +136,7 @@ export default function Pricing() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div className="flex-1 bg-gray-50 py-12 px-4">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">选择你的套餐</h1>

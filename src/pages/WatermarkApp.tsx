@@ -333,7 +333,7 @@ export default function WatermarkApp() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex-1 bg-gray-50">
       {isFreeUser && (
         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-b border-yellow-200">
           <div className="max-w-6xl mx-auto px-3 py-2 flex items-center justify-between">

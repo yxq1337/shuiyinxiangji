@@ -11,12 +11,13 @@ import Pricing from './pages/Pricing';
 import Admin from './pages/Admin';
 import PaymentPending from './pages/PaymentPending';
 import CustomerService from './pages/CustomerService';
+import Footer from './components/Footer';
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 flex flex-col">
           <Navbar />
           <Routes>
             <Route path="/" element={<Home />} />
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/admin" element={<Admin />} />
             <Route path="/customer-service" element={<CustomerService />} />
           </Routes>
+          <Footer />
         </div>
       </BrowserRouter>
     </AuthProvider>

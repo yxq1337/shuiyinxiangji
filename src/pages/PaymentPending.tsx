@@ -94,7 +94,7 @@ export default function PaymentPending() {
 
   if (!orderId) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="flex-1 bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl p-8 border border-gray-200 text-center">
           <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <p className="text-gray-500 mb-4">订单信息缺失</p>
@@ -110,7 +110,7 @@ export default function PaymentPending() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="flex-1 bg-gray-50 py-8 px-4">
       <div className="max-w-md mx-auto bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
         {status === 'created' && (
           <>

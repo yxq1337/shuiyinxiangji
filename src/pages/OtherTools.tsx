@@ -13,7 +13,7 @@ export default function OtherTools() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex-1 bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-6">
         <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-6">
           <ArrowLeft className="w-4 h-4" />
