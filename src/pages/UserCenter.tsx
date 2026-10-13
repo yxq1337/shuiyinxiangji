@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Crown, History, Settings, ArrowRight, Calendar, CheckCircle } from 'lucide-react';
+import { User, Crown, History, Settings, ArrowRight, Calendar, CheckCircle, MessageCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function UserCenter() {
@@ -42,6 +42,12 @@ export default function UserCenter() {
       title: '账号设置',
       description: '修改个人资料和偏好',
       to: '#',
+    },
+    {
+      icon: MessageCircle,
+      title: '联系客服',
+      description: '遇到问题？找客服帮忙',
+      to: '/customer-service',
     },
   ];
 

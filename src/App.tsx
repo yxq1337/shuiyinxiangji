@@ -10,6 +10,7 @@ import UserCenter from './pages/UserCenter';
 import Pricing from './pages/Pricing';
 import Admin from './pages/Admin';
 import PaymentPending from './pages/PaymentPending';
+import CustomerService from './pages/CustomerService';
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/payment/pending" element={<PaymentPending />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/customer-service" element={<CustomerService />} />
           </Routes>
         </div>
       </BrowserRouter>

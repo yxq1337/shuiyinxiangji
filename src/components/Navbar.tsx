@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Camera, User, Crown, Settings, LogOut, Home, Grid3X3 } from 'lucide-react';
+import { Camera, User, Crown, Settings, LogOut, Home, Grid3X3, MessageCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Navbar() {
@@ -74,19 +74,26 @@ export default function Navbar() {
               )}
             </div>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
+            <Link
+              to="/customer-service"
+              className="text-gray-500 hover:text-gray-700 transition-colors"
+              title="联系客服"
+            >
+              <MessageCircle className="w-5 h-5" />
+            </Link>
             {user ? (
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
                 {user.isVip && (
-                  <div className="flex items-center space-x-1 text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full text-sm">
-                    <Crown className="w-4 h-4" />
-                    <span className="font-medium">VIP会员</span>
+                  <div className="flex items-center space-x-1 text-yellow-600 bg-yellow-50 px-2.5 py-1 rounded-full text-xs">
+                    <Crown className="w-3.5 h-3.5" />
+                    <span className="font-medium">VIP</span>
                   </div>
                 )}
-                <div className="flex items-center space-x-2">
+                <Link to="/my" className="flex items-center space-x-1.5">
                   <User className="w-5 h-5 text-gray-500" />
-                  <span className="text-sm text-gray-700">{user.phone}</span>
-                </div>
+                  <span className="text-sm text-gray-700 hidden sm:inline">{user.phone}</span>
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="text-sm text-gray-500 hover:text-gray-700"
