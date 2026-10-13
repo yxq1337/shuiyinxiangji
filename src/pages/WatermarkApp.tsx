@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Download, Image as ImageIcon, Crown, Lock, Unlock, RefreshCw } from 'lucide-react';
+import { Upload, Download, Image as ImageIcon, Crown, Lock, Unlock, RefreshCw, X, Smartphone } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function WatermarkApp() {
@@ -239,21 +239,95 @@ export default function WatermarkApp() {
     }
   }, [imageObj, time, date, day, weather, temperature, location, securityCode]);
 
-  const handleDownload = () => {
+  const [showSavePreview, setShowSavePreview] = useState(false);
+  const [saveImageDataUrl, setSaveImageDataUrl] = useState<string | null>(null);
+
+  // 判断是否为移动设备
+  const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    typeof navigator !== 'undefined' ? navigator.userAgent : ''
+  );
+
+  // 将 canvas 转为 Blob
+  const canvasToBlob = (canvas: HTMLCanvasElement, type = 'image/jpeg', quality = 0.95): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Canvas to Blob 转换失败'));
+        },
+        type,
+        quality
+      );
+    });
+  };
+
+  // 保存图片到相册/本地
+  const handleDownload = async () => {
     if (shouldShowLimit) {
       setShowVipModal(true);
       return;
     }
-    if (canvasRef.current) {
-      const link = document.createElement('a');
-      link.download = `watermark_${Date.now()}.jpg`;
-      link.href = canvasRef.current.toDataURL('image/jpeg', 0.95);
-      link.click();
+    if (!canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const fileName = `watermark_${Date.now()}.jpg`;
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+
+    // 移动端：弹出预览，引导长按保存到相册
+    if (isMobileDevice) {
+      setSaveImageDataUrl(dataUrl);
+      setShowSavePreview(true);
 
       if (isFreeUser) {
         const newCount = useCount + 1;
         setUseCount(newCount);
         localStorage.setItem('watermarkUseCount', newCount.toString());
+      }
+      return;
+    }
+
+    // PC 端：优先使用 File System Access API 选择保存位置
+    try {
+      if ('showSaveFilePicker' in window) {
+        const blob = await canvasToBlob(canvas);
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: fileName,
+          types: [
+            {
+              description: 'JPEG 图片',
+              accept: { 'image/jpeg': ['.jpg', '.jpeg'] },
+            },
+          ],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } else {
+        // 旧浏览器兜底：传统 a 标签下载
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = dataUrl;
+        link.click();
+      }
+
+      if (isFreeUser) {
+        const newCount = useCount + 1;
+        setUseCount(newCount);
+        localStorage.setItem('watermarkUseCount', newCount.toString());
+      }
+    } catch (err) {
+      // 用户取消或异常时，兜底用 a 标签下载
+      if (err && (err as any).name !== 'AbortError') {
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = dataUrl;
+        link.click();
+
+        if (isFreeUser) {
+          const newCount = useCount + 1;
+          setUseCount(newCount);
+          localStorage.setItem('watermarkUseCount', newCount.toString());
+        }
       }
     }
   };
@@ -469,6 +543,57 @@ export default function WatermarkApp() {
               >
                 立即升级
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 移动端保存预览 - 引导长按保存到相册 */}
+      {showSavePreview && saveImageDataUrl && (
+        <div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 p-4">
+          <button
+            onClick={() => setShowSavePreview(false)}
+            className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white bg-white/10 rounded-full transition-colors"
+            aria-label="关闭"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          <div className="w-full max-w-sm flex flex-col items-center">
+            <div className="relative">
+              <img
+                src={saveImageDataUrl}
+                alt="保存预览"
+                className="max-w-full max-h-[60vh] rounded-lg shadow-2xl select-none"
+                style={{ touchAction: 'manipulation' }}
+              />
+              {/* 提示气泡 */}
+              <div className="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                <div className="bg-white text-gray-800 px-4 py-2 rounded-full text-sm font-medium shadow-lg flex items-center gap-2 animate-bounce">
+                  <Smartphone className="w-4 h-4" />
+                  长按图片保存到相册
+                </div>
+              </div>
+            </div>
+
+            <p className="text-white/70 text-sm mt-8 text-center">
+              👆 长按上方图片，选择「保存到相册」或「保存图片」
+            </p>
+
+            <div className="mt-6 flex gap-3 w-full">
+              <button
+                onClick={() => setShowSavePreview(false)}
+                className="flex-1 px-4 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors font-medium border border-white/20"
+              >
+                返回编辑
+              </button>
+              <a
+                href={saveImageDataUrl}
+                download={`watermark_${Date.now()}.jpg`}
+                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-center"
+              >
+                直接下载
+              </a>
             </div>
           </div>
         </div>
