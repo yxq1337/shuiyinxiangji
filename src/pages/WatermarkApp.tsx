@@ -333,37 +333,33 @@ export default function WatermarkApp() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-8">
+    <div className="min-h-screen bg-gray-50">
       {isFreeUser && (
         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-b border-yellow-200">
-          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Crown className="w-5 h-5 text-yellow-600" />
-              <span className="text-yellow-800 text-sm">
-                免费用户今日剩余 <strong>{Math.max(0, FREE_LIMIT - useCount)}</strong> 次导出
+          <div className="max-w-6xl mx-auto px-3 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Crown className="w-4 h-4 text-yellow-600" />
+              <span className="text-yellow-800 text-xs">
+                剩余 <strong>{Math.max(0, FREE_LIMIT - useCount)}</strong> 次
               </span>
             </div>
             <button
               onClick={() => navigate('/pricing')}
-              className="bg-yellow-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-yellow-600 transition-colors"
+              className="bg-yellow-500 text-white px-3 py-1 rounded-md text-xs font-medium hover:bg-yellow-600 transition-colors"
             >
-              升级VIP无限使用
+              升级VIP
             </button>
           </div>
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto px-4 pt-8">
-        <header className="mb-10 text-center">
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">自定义水印相机</h1>
-          <p className="text-gray-500 mt-2">上传照片并自定义水印信息</p>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col items-center justify-center min-h-[500px] relative overflow-hidden">
+      <div className="max-w-6xl mx-auto px-3 py-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* 左侧：图片预览区 */}
+          <div className="bg-white p-2.5 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-center relative overflow-hidden">
             {!imageSrc ? (
               <label
-                className={`flex flex-col items-center justify-center w-full h-full cursor-pointer border-2 border-dashed rounded-xl transition-colors ${
+                className={`flex flex-col items-center justify-center w-full py-8 cursor-pointer border-2 border-dashed rounded-lg transition-colors ${
                   shouldShowLimit
                     ? 'border-red-300 hover:bg-red-50'
                     : isDragging
@@ -374,50 +370,47 @@ export default function WatermarkApp() {
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
               >
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  {shouldShowLimit ? (
-                    <>
-                      <Lock className="w-12 h-12 text-red-400 mb-4" />
-                      <p className="mb-2 text-sm text-red-600 font-medium">今日免费次数已用完</p>
-                      <p className="text-xs text-red-500">升级VIP解锁无限使用</p>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-12 h-12 text-gray-400 mb-4" />
-                      <p className="mb-2 text-sm text-gray-500">
-                        <span className="font-semibold">点击上传</span> 或拖拽图片至此处
-                      </p>
-                      <p className="text-xs text-gray-500">支持 JPG, PNG 格式</p>
-                    </>
-                  )}
-                </div>
+                {shouldShowLimit ? (
+                  <>
+                    <Lock className="w-8 h-8 text-red-400 mb-2" />
+                    <p className="text-xs text-red-600 font-medium">今日免费次数已用完</p>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                    <p className="text-xs text-gray-500">
+                      <span className="font-semibold">点击上传</span> 或拖拽图片
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">支持 JPG, PNG</p>
+                  </>
+                )}
                 <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={shouldShowLimit} />
               </label>
             ) : (
               <div className="w-full flex flex-col items-center">
-                <div className="relative w-full flex justify-center bg-gray-100 rounded-lg overflow-hidden shadow-inner">
+                <div className="relative w-full flex justify-center bg-gray-100 rounded-md overflow-hidden">
                   <canvas
                     ref={canvasRef}
                     className="max-w-full h-auto block"
-                    style={{ maxHeight: '65vh', objectFit: 'contain' }}
+                    style={{ maxHeight: '45vh', objectFit: 'contain' }}
                   />
                 </div>
-                <div className="mt-6 flex gap-4 w-full max-w-md">
-                  <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors font-medium">
-                    <ImageIcon className="w-5 h-5" />
-                    更换图片
+                <div className="mt-2.5 flex gap-2 w-full">
+                  <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors text-sm font-medium">
+                    <ImageIcon className="w-4 h-4" />
+                    更换
                     <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
                   </label>
                   <button
                     onClick={handleDownload}
                     disabled={shouldShowLimit}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md font-medium transition-colors text-sm ${
                       shouldShowLimit
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                   >
-                    <Download className="w-5 h-5" />
+                    <Download className="w-4 h-4" />
                     {shouldShowLimit ? '升级解锁' : '保存图片'}
                   </button>
                 </div>
@@ -425,98 +418,96 @@ export default function WatermarkApp() {
             )}
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-fit">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-800">水印设置</h2>
+          {/* 右侧：水印设置 */}
+          <div className="bg-white p-3.5 rounded-xl shadow-sm border border-gray-200 h-fit">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-gray-800">水印设置</h2>
               <button
                 onClick={getCurrentDateTime}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm"
+                className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors text-xs"
               >
-                <RefreshCw className="w-4 h-4" />
-                同步当前时间
+                <RefreshCw className="w-3.5 h-3.5" />
+                同步时间
               </button>
             </div>
 
-            <div className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">时间</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">时间</label>
                   <input
                     type="time"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">日期</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">日期</label>
                   <input
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">星期</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">星期</label>
                   <input
                     type="text"
                     value={day}
                     onChange={(e) => setDay(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">天气</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">天气</label>
                   <input
                     type="text"
                     value={weather}
                     onChange={(e) => setWeather(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">温度</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">温度</label>
                   <input
                     type="text"
                     value={temperature}
                     onChange={(e) => setTemperature(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">详细地址</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">详细地址</label>
                 <textarea
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
+                  rows={2}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">防伪码</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">防伪码</label>
                 <input
                   type="text"
                   value={securityCode}
                   onChange={(e) => setSecurityCode(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
                 />
               </div>
             </div>
 
-            <div className="mt-8 p-4 bg-blue-50 rounded-xl border border-blue-100">
-              <h3 className="text-sm font-semibold text-blue-800 mb-2">提示</h3>
-              <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
-                <li>所有水印信息均可自由修改</li>
-                <li>生成的图片将保留原图分辨率</li>
-                <li>右下角包含"今日水印相机 真实可验"标志</li>
-              </ul>
+            <div className="mt-3 p-2.5 bg-blue-50 rounded-lg border border-blue-100">
+              <p className="text-[11px] text-blue-700 leading-relaxed">
+                💡 所有信息均可修改 · 保留原图分辨率 · 含今日水印标志
+              </p>
             </div>
           </div>
         </div>
