@@ -22,7 +22,7 @@ export default function Navbar() {
           <div className="flex items-center space-x-8">
             <Link to="/" className="flex items-center space-x-2">
               <Camera className="w-7 h-7 text-blue-600" />
-              <span className="font-bold text-lg text-gray-900">图片工具箱</span>
+              <span className="font-bold text-lg text-gray-900">YaoBox</span>
             </Link>
             <div className="hidden md:flex items-center space-x-6">
               <Link

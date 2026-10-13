@@ -82,8 +82,8 @@ export default function Home() {
       {/* 头部横幅 */}
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
         <div className="max-w-6xl mx-auto px-4 py-8">
-          <h1 className="text-2xl font-bold mb-1">图片工具箱</h1>
-          <p className="text-blue-100 text-sm">一站式图片处理工具，简单高效</p>
+          <h1 className="text-2xl font-bold mb-1">YaoBox</h1>
+          <p className="text-blue-100 text-sm">实用工具箱，简单高效</p>
         </div>
       </div>
 
