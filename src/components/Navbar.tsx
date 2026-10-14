@@ -21,8 +21,8 @@ export default function Navbar() {
         <div className="flex justify-between h-16">
           <div className="flex items-center space-x-8">
             <Link to="/" className="flex items-center space-x-2">
-              <Camera className="w-7 h-7 text-blue-600" />
-              <span className="font-bold text-lg text-gray-900">YaoBox</span>
+              <img src="/yaobox-logo-96.png" alt="YaoBox" className="w-9 h-9 shrink-0 object-contain" />
+              <span className="font-bold text-xl tracking-tight text-gray-900">YaoBox</span>
             </Link>
             <div className="hidden md:flex items-center space-x-6">
               <Link

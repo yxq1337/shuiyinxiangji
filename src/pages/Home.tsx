@@ -82,9 +82,12 @@ export default function Home() {
     <div className="flex-1 bg-gray-50">
       {/* 头部横幅 */}
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
-        <div className="max-w-6xl mx-auto px-4 py-8">
-          <h1 className="text-2xl font-bold mb-1">YaoBox</h1>
-          <p className="text-blue-100 text-sm">实用工具箱，简单高效</p>
+        <div className="max-w-6xl mx-auto px-4 py-8 flex items-center gap-3">
+          <img src="/yaobox-logo-96.png" alt="YaoBox" className="w-12 h-12 object-contain drop-shadow" />
+          <div>
+            <h1 className="text-2xl font-bold mb-1">YaoBox</h1>
+            <p className="text-blue-100 text-sm">实用工具箱，简单高效</p>
+          </div>
         </div>
       </div>
 
