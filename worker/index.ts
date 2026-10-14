@@ -98,7 +98,12 @@ app.post('/api/tts/clone', async (c) => {
     return c.json({ error: '服务未配置 Fish Audio API Key' }, 500);
   }
 
-  const formData = await c.req.formData();
+  let formData: FormData;
+  try {
+    formData = await c.req.formData();
+  } catch {
+    return c.json({ error: '请求格式错误，请使用 multipart/form-data 上传音频' }, 400);
+  }
   const audioFile = formData.get('audio') as File | null;
   const title = (formData.get('title') as string) || '我的克隆音色';
 
