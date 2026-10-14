@@ -101,6 +101,53 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  // ==================== Fish Audio TTS 代理（本地开发用） ====================
+  app.post("/api/tts", async (req, res) => {
+    const apiKey = process.env.FISH_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "本地开发请设置环境变量 FISH_API_KEY" });
+    }
+
+    const { text, format, speed_factor, reference_id, model } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ error: "text 不能为空" });
+    }
+
+    const fishBody: Record<string, unknown> = {
+      text: text.trim(),
+      format: format || "mp3",
+      speed_factor: speed_factor ?? 1.0,
+    };
+    if (reference_id) fishBody.reference_id = reference_id;
+
+    try {
+      const resp = await fetch("https://api.fish.audio/v1/tts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          model: model || "s2.1-pro-free",
+        },
+        body: JSON.stringify(fishBody),
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => "");
+        return res.status(resp.status).json({
+          error: `Fish Audio 错误 (${resp.status}): ${errText.slice(0, 300)}`,
+        });
+      }
+
+      const contentType = resp.headers.get("content-type") || "audio/mpeg";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "no-store");
+      const arrayBuffer = await resp.arrayBuffer();
+      res.send(Buffer.from(arrayBuffer));
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "代理请求失败" });
+    }
+  });
+
   // ==================== 认证 API ====================
 
   app.post("/api/auth/login", (req, res) => {

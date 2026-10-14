@@ -17,6 +17,7 @@ type Bindings = {
   ADMIN_PASSWORD: string;
   RESEND_API_KEY?: string;
   ADMIN_EMAIL?: string;
+  FISH_API_KEY?: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -30,6 +31,64 @@ app.use('/*', cors({
 
 // ==================== 健康检查 ====================
 app.get('/api/health', (c) => c.json({ status: 'ok' }));
+
+// ==================== Fish Audio TTS 代理 ====================
+app.post('/api/tts', async (c) => {
+  const apiKey = c.env.FISH_API_KEY;
+  if (!apiKey) {
+    return c.json({ error: '服务未配置 Fish Audio API Key' }, 500);
+  }
+
+  const body = await c.req.json<{
+    text: string;
+    format?: string;
+    speed_factor?: number;
+    reference_id?: string;
+    model?: string;
+  }>();
+
+  if (!body.text || !body.text.trim()) {
+    return c.json({ error: 'text 不能为空' }, 400);
+  }
+
+  const model = body.model || 's2.1-pro-free';
+  const fishBody: Record<string, unknown> = {
+    text: body.text.trim(),
+    format: body.format || 'mp3',
+    speed_factor: body.speed_factor ?? 1.0,
+  };
+  if (body.reference_id) {
+    fishBody.reference_id = body.reference_id;
+  }
+
+  const resp = await fetch('https://api.fish.audio/v1/tts', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      model,
+    },
+    body: JSON.stringify(fishBody),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    return c.json(
+      { error: `Fish Audio 错误 (${resp.status}): ${errText.slice(0, 300)}` },
+      resp.status,
+    );
+  }
+
+  // 透传音频流
+  const contentType = resp.headers.get('content-type') || 'audio/mpeg';
+  return new Response(resp.body, {
+    status: 200,
+    headers: {
+      'Content-Type': contentType,
+      'Cache-Control': 'no-store',
+    },
+  });
+});
 
 // ==================== 认证 API ====================
 

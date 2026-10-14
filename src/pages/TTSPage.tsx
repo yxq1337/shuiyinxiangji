@@ -1,13 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { ArrowLeft, Volume2, Download, Settings, Mic, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, Volume2, Download, Settings, Mic, Loader2, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const FISH_API_BASE = 'https://api.fish.audio';
-const STORAGE_KEY = 'yaobox_fish_api_key';
+type Mode = 'server' | 'custom';
 
 export default function TTSPage() {
-  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem(STORAGE_KEY) || '');
+  const [mode, setMode] = useState<Mode>('server');
   const [showSettings, setShowSettings] = useState(false);
+  const [customKey, setCustomKey] = useState<string>(
+    () => localStorage.getItem('yaobox_fish_api_key') || '',
+  );
   const [keySaved, setKeySaved] = useState(false);
 
   const [text, setText] = useState('你好，欢迎使用 YaoBox AI 语音合成工具。');
@@ -21,20 +23,20 @@ export default function TTSPage() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  const handleSaveKey = () => {
-    localStorage.setItem(STORAGE_KEY, apiKey.trim());
+  const handleSaveCustomKey = () => {
+    localStorage.setItem('yaobox_fish_api_key', customKey.trim());
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 1500);
   };
 
   const handleGenerate = async () => {
-    if (!apiKey.trim()) {
-      setError('请先在设置中填入 Fish Audio API Key');
-      setShowSettings(true);
-      return;
-    }
     if (!text.trim()) {
       setError('请输入要合成的文字');
+      return;
+    }
+    if (mode === 'custom' && !customKey.trim()) {
+      setError('自定义模式下请填入 API Key');
+      setShowSettings(true);
       return;
     }
 
@@ -50,29 +52,40 @@ export default function TTSPage() {
         text: text.trim(),
         format,
         speed_factor: speed,
+        model,
       };
       if (referenceId.trim()) {
         body.reference_id = referenceId.trim();
       }
 
-      const res = await fetch(`${FISH_API_BASE}/v1/tts`, {
+      const url = mode === 'server' ? '/api/tts' : 'https://api.fish.audio/v1/tts';
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (mode === 'custom') {
+        headers['Authorization'] = `Bearer ${customKey.trim()}`;
+        headers['model'] = model;
+      }
+
+      const res = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey.trim()}`,
-          model,
-        },
+        headers,
         body: JSON.stringify(body),
       });
 
       if (!res.ok) {
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error || `合成失败 (${res.status})`);
+        }
         const errText = await res.text().catch(() => '');
         throw new Error(`合成失败 (${res.status})${errText ? ': ' + errText.slice(0, 200) : ''}`);
       }
 
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
+      const url_obj = URL.createObjectURL(blob);
+      setAudioUrl(url_obj);
     } catch (e) {
       setError(e instanceof Error ? e.message : '合成失败');
     } finally {
@@ -106,7 +119,17 @@ export default function TTSPage() {
               </div>
               <div>
                 <h1 className="text-lg font-bold text-gray-900">AI 语音合成</h1>
-                <p className="text-xs text-gray-500">由 Fish Audio 驱动</p>
+                <p className="text-xs text-gray-500">
+                  由 Fish Audio 驱动 ·{' '}
+                  {mode === 'server' ? (
+                    <span className="inline-flex items-center gap-0.5 text-green-600">
+                      <Shield className="w-3 h-3" />
+                      服务端代理
+                    </span>
+                  ) : (
+                    <span className="text-orange-600">自定义 Key</span>
+                  )}
+                </p>
               </div>
             </div>
             <button
@@ -123,41 +146,67 @@ export default function TTSPage() {
           {/* 设置面板 */}
           {showSettings && (
             <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <h3 className="text-sm font-semibold text-gray-800 mb-3">API 设置</h3>
-              <label className="block text-xs text-gray-500 mb-1.5">Fish Audio API Key</label>
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="填入你的 API Key"
-                  className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
-                />
+              <h3 className="text-sm font-semibold text-gray-800 mb-3">合成模式</h3>
+              <div className="flex gap-2 mb-4">
                 <button
-                  onClick={handleSaveKey}
-                  className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-1"
+                  onClick={() => setMode('server')}
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg border transition-colors ${
+                    mode === 'server'
+                      ? 'bg-purple-600 text-white border-purple-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                  }`}
                 >
-                  {keySaved ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      已保存
-                    </>
-                  ) : (
-                    '保存'
-                  )}
+                  服务端代理（推荐）
+                </button>
+                <button
+                  onClick={() => setMode('custom')}
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg border transition-colors ${
+                    mode === 'custom'
+                      ? 'bg-purple-600 text-white border-purple-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  自定义 API Key
                 </button>
               </div>
-              <p className="text-[11px] text-gray-400">
-                Key 仅保存在本地浏览器中，不会上传到 YaoBox 服务器。
-                <a
-                  href="https://fish.audio/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-purple-600 hover:text-purple-700 ml-1"
-                >
-                  去 Fish Audio 获取 →
-                </a>
-              </p>
+
+              {mode === 'server' && (
+                <p className="text-[11px] text-gray-500">
+                  通过 YaoBox 服务端调用 Fish Audio API，无需配置 Key，直接使用。
+                </p>
+              )}
+
+              {mode === 'custom' && (
+                <>
+                  <label className="block text-xs text-gray-500 mb-1.5">Fish Audio API Key</label>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="password"
+                      value={customKey}
+                      onChange={(e) => setCustomKey(e.target.value)}
+                      placeholder="填入你的 API Key"
+                      className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
+                    />
+                    <button
+                      onClick={handleSaveCustomKey}
+                      className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                    >
+                      {keySaved ? '已保存' : '保存'}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    Key 仅保存在本地浏览器中。
+                    <a
+                      href="https://fish.audio/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-purple-600 hover:text-purple-700 ml-1"
+                    >
+                      去获取 →
+                    </a>
+                  </p>
+                </>
+              )}
             </div>
           )}
 
@@ -280,7 +329,7 @@ export default function TTSPage() {
         </div>
 
         <p className="text-[11px] text-gray-400 text-center mt-4">
-          本工具调用 Fish Audio 官方 API，音频由第三方生成
+          音频由 Fish Audio 生成 · 请勿用于违法违规用途
         </p>
       </div>
     </div>

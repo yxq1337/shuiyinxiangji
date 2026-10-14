@@ -17,5 +17,8 @@ database_id = "62c72411-197f-4c88-baec-97d857d5205d"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "vip1337"
 
+# Fish Audio API Key —— 使用 secret 设置，不要写进 git
+# wrangler secret put FISH_API_KEY
+
 # Worker 部署完成后会得到默认的 workers.dev 域名
 # 无需配置 routes（除非绑定自定义域名）
