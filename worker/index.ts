@@ -8,6 +8,7 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { generateOrderId, validateBase64Image, orderTitle } from './orders';
 import { notifyAdminNewOrder, notifyUserOrderApproved, notifyUserOrderRejected } from './email';
 
@@ -75,7 +76,7 @@ app.post('/api/tts', async (c) => {
     const errText = await resp.text().catch(() => '');
     return c.json(
       { error: `Fish Audio 错误 (${resp.status}): ${errText.slice(0, 300)}` },
-      resp.status,
+      resp.status as ContentfulStatusCode,
     );
   }
 
@@ -87,6 +88,59 @@ app.post('/api/tts', async (c) => {
       'Content-Type': contentType,
       'Cache-Control': 'no-store',
     },
+  });
+});
+
+// ==================== Fish Audio 声音克隆 ====================
+app.post('/api/tts/clone', async (c) => {
+  const apiKey = c.env.FISH_API_KEY;
+  if (!apiKey) {
+    return c.json({ error: '服务未配置 Fish Audio API Key' }, 500);
+  }
+
+  const formData = await c.req.formData();
+  const audioFile = formData.get('audio') as File | null;
+  const title = (formData.get('title') as string) || '我的克隆音色';
+
+  if (!audioFile) {
+    return c.json({ error: '请上传音频文件' }, 400);
+  }
+  if (audioFile.size > 25 * 1024 * 1024) {
+    return c.json({ error: '音频文件不能超过 25MB' }, 400);
+  }
+
+  const fishForm = new FormData();
+  fishForm.append('type', 'tts');
+  fishForm.append('train_mode', 'fast');
+  fishForm.append('visibility', 'private');
+  fishForm.append('title', title);
+  fishForm.append('voices', audioFile, audioFile.name);
+  fishForm.append('enhance_audio_quality', 'true');
+  fishForm.append('generate_sample', 'true');
+
+  const resp = await fetch('https://api.fish.audio/model', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: fishForm,
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    return c.json(
+      { error: `克隆失败 (${resp.status}): ${errText.slice(0, 300)}` },
+      resp.status as ContentfulStatusCode,
+    );
+  }
+
+  const data = await resp.json<{ _id?: string; id?: string; title?: string }>();
+  const modelId = data?._id || data?.id || '';
+  return c.json({
+    success: true,
+    reference_id: modelId,
+    title: data?.title || title,
+    model_id: modelId,
   });
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { ArrowLeft, Volume2, Download, Settings, Mic, Loader2, Shield } from 'lucide-react';
+import { ArrowLeft, Volume2, Download, Settings, Mic, Loader2, Shield, Upload, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 type Mode = 'server' | 'custom';
@@ -14,6 +14,11 @@ export default function TTSPage() {
 
   const [text, setText] = useState('你好，欢迎使用 YaoBox AI 语音合成工具。');
   const [referenceId, setReferenceId] = useState('');
+  const [cloneName, setCloneName] = useState('我的音色');
+  const [isCloning, setIsCloning] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
+  const [cloneSuccess, setCloneSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [model, setModel] = useState('s2.1-pro-free');
   const [format, setFormat] = useState<'mp3' | 'wav' | 'opus'>('mp3');
   const [speed, setSpeed] = useState(1.0);
@@ -27,6 +32,70 @@ export default function TTSPage() {
     localStorage.setItem('yaobox_fish_api_key', customKey.trim());
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 1500);
+  };
+
+  const handleClone = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('audio/') && !/\.(mp3|wav|m4a|ogg|flac|aac)$/i.test(file.name)) {
+      setCloneError('请上传音频文件（MP3/WAV/M4A 等）');
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      setCloneError('文件不能超过 25MB');
+      return;
+    }
+
+    setCloneError(null);
+    setCloneSuccess(false);
+    setIsCloning(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', file);
+      formData.append('title', cloneName.trim() || '我的音色');
+
+      const url =
+        mode === 'server'
+          ? 'https://shuiyinxiangji-api.yxq1337.workers.dev/api/tts/clone'
+          : 'https://api.fish.audio/model';
+      const headers: Record<string, string> = {};
+      if (mode === 'custom') {
+        headers['Authorization'] = `Bearer ${customKey.trim()}`;
+      }
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+          throw new Error((data?.error as string) || `克隆失败 (${res.status})`);
+        }
+        const errText = await res.text().catch(() => '');
+        throw new Error(`克隆失败 (${res.status})${errText ? ': ' + errText.slice(0, 200) : ''}`);
+      }
+
+      const data = await res.json() as Record<string, unknown>;
+      const rid = data?.reference_id || data?.model_id || data?._id || data?.id || '';
+      if (rid) {
+        setReferenceId(rid);
+        setCloneSuccess(true);
+        setTimeout(() => setCloneSuccess(false), 3000);
+      } else {
+        throw new Error('未返回音色 ID');
+      }
+    } catch (e) {
+      setCloneError(e instanceof Error ? e.message : '克隆失败');
+    } finally {
+      setIsCloning(false);
+      // 清空文件输入，允许重复上传同一个文件
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleGenerate = async () => {
@@ -76,8 +145,8 @@ export default function TTSPage() {
       if (!res.ok) {
         const ct = res.headers.get('content-type') || '';
         if (ct.includes('application/json')) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data?.error || `合成失败 (${res.status})`);
+          const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+          throw new Error((data?.error as string) || `合成失败 (${res.status})`);
         }
         const errText = await res.text().catch(() => '');
         throw new Error(`合成失败 (${res.status})${errText ? ': ' + errText.slice(0, 200) : ''}`);
@@ -271,17 +340,70 @@ export default function TTSPage() {
               <label className="block text-xs font-medium text-gray-700 mb-1.5">
                 <span className="flex items-center gap-1">
                   <Mic className="w-3.5 h-3.5" />
-                  音色 ID（可选）
+                  音色 ID
                 </span>
               </label>
               <input
                 type="text"
                 value={referenceId}
                 onChange={(e) => setReferenceId(e.target.value)}
-                placeholder="reference_id"
+                placeholder="留空用默认音色"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
               />
             </div>
+          </div>
+
+          {/* 一键克隆音色 */}
+          <div className="mb-4 p-4 bg-purple-50/50 rounded-xl border border-purple-100">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-purple-600" />
+              <h3 className="text-sm font-semibold text-gray-800">一键克隆音色</h3>
+            </div>
+            <p className="text-[11px] text-gray-500 mb-3">
+              上传一段 30 秒以上的清晰人声，自动克隆为专属音色（仅你自己可见）。
+            </p>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={cloneName}
+                onChange={(e) => setCloneName(e.target.value)}
+                placeholder="音色名称"
+                className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 bg-white"
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="audio/*"
+                onChange={handleClone}
+                className="hidden"
+                id="clone-audio-input"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isCloning}
+                className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 flex-shrink-0"
+              >
+                {isCloning ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    克隆中…
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    上传音频
+                  </>
+                )}
+              </button>
+            </div>
+            {cloneError && (
+              <p className="text-[11px] text-red-600">{cloneError}</p>
+            )}
+            {cloneSuccess && (
+              <p className="text-[11px] text-green-600 flex items-center gap-1">
+                ✅ 克隆成功！音色 ID 已自动填入上方
+              </p>
+            )}
           </div>
 
           {/* 错误提示 */}

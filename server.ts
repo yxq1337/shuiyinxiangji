@@ -148,6 +148,50 @@ async function startServer() {
     }
   });
 
+  // ==================== Fish Audio 声音克隆（本地开发用） ====================
+  app.post("/api/tts/clone", async (req, res) => {
+    const apiKey = process.env.FISH_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "本地开发请设置环境变量 FISH_API_KEY" });
+    }
+
+    // 用 multer 或者直接读 multipart？这里用 express 自带的简化处理
+    // 实际上传由前端 FormData 发出，需要后端解析 multipart
+    if (!req.is("multipart/form-data")) {
+      return res.status(400).json({ error: "请使用 multipart/form-data 上传" });
+    }
+
+    try {
+      // 简单实现：直接透传整个请求体到 Fish Audio
+      const resp = await fetch("https://api.fish.audio/model", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": req.get("content-type") || "multipart/form-data",
+        },
+        body: req.body instanceof Buffer ? req.body : undefined,
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => "");
+        return res.status(resp.status).json({
+          error: `克隆失败 (${resp.status}): ${errText.slice(0, 300)}`,
+        });
+      }
+
+      const data = (await resp.json()) as Record<string, unknown>;
+      const modelId = (data?._id as string) || (data?.id as string) || "";
+      res.json({
+        success: true,
+        reference_id: modelId,
+        title: (data?.title as string) || "我的音色",
+        model_id: modelId,
+      });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "代理请求失败" });
+    }
+  });
+
   // ==================== 认证 API ====================
 
   app.post("/api/auth/login", (req, res) => {
