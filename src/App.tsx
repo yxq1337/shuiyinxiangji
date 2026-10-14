@@ -11,6 +11,7 @@ import Pricing from './pages/Pricing';
 import Admin from './pages/Admin';
 import PaymentPending from './pages/PaymentPending';
 import CustomerService from './pages/CustomerService';
+import TTSPage from './pages/TTSPage';
 import Footer from './components/Footer';
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/payment/pending" element={<PaymentPending />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/customer-service" element={<CustomerService />} />
+            <Route path="/tool/tts" element={<TTSPage />} />
           </Routes>
           <Footer />
         </div>

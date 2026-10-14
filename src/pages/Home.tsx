@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Wrench, Users } from 'lucide-react';
+import { Camera, Wrench, Users, Volume2 } from 'lucide-react';
 interface ToolItem {
   id: string;
   title: string;
@@ -27,13 +27,14 @@ export default function Home() {
       bgColor: 'bg-blue-50',
     },
     {
-      id: 'more1',
-      title: '更多工具',
-      description: '开发中，敬请期待',
-      icon: <Wrench className="w-7 h-7" />,
-      path: '/tools',
-      color: 'text-gray-500',
-      bgColor: 'bg-gray-100',
+      id: 'tts',
+      title: 'AI 语音合成',
+      description: '文字转语音，支持声音克隆',
+      icon: <Volume2 className="w-7 h-7" />,
+      path: '/tool/tts',
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      isNew: true,
     },
     {
       id: 'more2',
@@ -96,8 +97,13 @@ export default function Home() {
               <button
                 key={tool.id}
                 onClick={() => handleToolClick(tool)}
-                className="flex flex-col items-center justify-center p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-white hover:border-blue-200 hover:shadow-sm transition-all duration-200 active:scale-95"
+                className="flex flex-col items-center justify-center p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-white hover:border-blue-200 hover:shadow-sm transition-all duration-200 active:scale-95 relative"
               >
+                {tool.isNew && (
+                  <span className="absolute top-2 right-2 px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-medium rounded-full">
+                    NEW
+                  </span>
+                )}
                 <div className={`w-12 h-12 rounded-xl ${tool.bgColor} ${tool.color} flex items-center justify-center mb-2`}>
                   {tool.icon}
                 </div>
