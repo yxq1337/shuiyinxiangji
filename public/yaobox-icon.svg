@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="YaoBox">
+  <defs><linearGradient id="box" x1="8" y1="4" x2="58" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#2563EB"/><stop offset="1" stop-color="#5935E8"/></linearGradient></defs>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#box)"/>
+  <path d="M18 20L32 31L46 20M32 31V47" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M17 38V44C17 46 18 47 20 48L25 51M47 38V44C47 46 46 47 44 48L39 51" stroke="white" stroke-opacity=".45" stroke-width="3" stroke-linecap="round"/>
+</svg>
