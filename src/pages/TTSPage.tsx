@@ -58,7 +58,7 @@ export default function TTSPage() {
         body.reference_id = referenceId.trim();
       }
 
-      const url = mode === 'server' ? '/api/tts' : 'https://api.fish.audio/v1/tts';
+      const url = mode === 'server' ? 'https://shuiyinxiangji-api.yxq1337.workers.dev/api/tts' : 'https://api.fish.audio/v1/tts';
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
