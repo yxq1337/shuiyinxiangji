@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Wrench, Users, Volume2 } from 'lucide-react';
+import { Camera, Users, Volume2, Shield, Plus } from 'lucide-react';
+
 interface ToolItem {
   id: string;
   title: string;
@@ -10,7 +11,6 @@ interface ToolItem {
   color: string;
   bgColor: string;
   isNew?: boolean;
-  isVip?: boolean;
 }
 
 export default function Home() {
@@ -21,7 +21,7 @@ export default function Home() {
       id: 'watermark',
       title: '水印相机',
       description: '自定义时间地点天气水印',
-      icon: <Camera className="w-7 h-7" />,
+      icon: <Camera className="w-6 h-6" />,
       path: '/camera',
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
@@ -30,98 +30,69 @@ export default function Home() {
       id: 'tts',
       title: 'AI 语音合成',
       description: '文字转语音，支持声音克隆',
-      icon: <Volume2 className="w-7 h-7" />,
+      icon: <Volume2 className="w-6 h-6" />,
       path: '/tool/tts',
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
       isNew: true,
     },
-    {
-      id: 'more2',
-      title: '更多工具',
-      description: '开发中，敬请期待',
-      icon: <Wrench className="w-7 h-7" />,
-      path: '/tools',
-      color: 'text-gray-500',
-      bgColor: 'bg-gray-100',
-    },
-    {
-      id: 'more3',
-      title: '更多工具',
-      description: '开发中，敬请期待',
-      icon: <Wrench className="w-7 h-7" />,
-      path: '/tools',
-      color: 'text-gray-500',
-      bgColor: 'bg-gray-100',
-    },
-    {
-      id: 'more4',
-      title: '更多工具',
-      description: '开发中，敬请期待',
-      icon: <Wrench className="w-7 h-7" />,
-      path: '/tools',
-      color: 'text-gray-500',
-      bgColor: 'bg-gray-100',
-    },
-    {
-      id: 'more5',
-      title: '更多工具',
-      description: '开发中，敬请期待',
-      icon: <Wrench className="w-7 h-7" />,
-      path: '/tools',
-      color: 'text-gray-500',
-      bgColor: 'bg-gray-100',
-    },
   ];
-
-  const handleToolClick = (tool: ToolItem) => {
-    navigate(tool.path);
-  };
 
   return (
     <div className="flex-1 bg-gray-50">
-      {/* 头部横幅 */}
+      {/* 精简横幅：无 LOGO（导航栏已有），只留标语 + 隐私卖点 */}
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
-        <div className="max-w-6xl mx-auto px-4 py-8 flex items-center gap-3">
-          <img src="/yaobox-icon.svg" alt="YaoBox" className="w-12 h-12 drop-shadow" />
-          <div>
-            <h1 className="text-2xl font-bold mb-1">YaoBox</h1>
-            <p className="text-blue-100 text-sm">实用工具箱，简单高效</p>
-          </div>
+        <div className="max-w-6xl mx-auto px-4 py-5">
+          <h1 className="text-xl font-bold mb-0.5">YaoBox</h1>
+          <p className="text-blue-100 text-sm mb-2">实用工具箱，简单高效</p>
+          <p className="flex items-center gap-1.5 text-blue-100/90 text-xs">
+            <Shield className="w-3.5 h-3.5" />
+            所有工具均在本地处理，保护您的隐私
+          </p>
         </div>
       </div>
 
-      {/* 工具网格 */}
-      <div className="max-w-6xl mx-auto px-4 -mt-4">
+      {/* 工具区 */}
+      <div className="max-w-6xl mx-auto px-4 -mt-3">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <h2 className="text-sm font-semibold text-gray-800 mb-3">常用工具</h2>
-          <div className="grid grid-cols-3 gap-3">
+
+          {/* 两列大卡片 */}
+          <div className="grid grid-cols-2 gap-3">
             {tools.map((tool) => (
               <button
                 key={tool.id}
-                onClick={() => handleToolClick(tool)}
-                className="flex flex-col items-center justify-center p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-white hover:border-blue-200 hover:shadow-sm transition-all duration-200 active:scale-95 relative"
+                onClick={() => navigate(tool.path)}
+                className="relative flex items-start gap-3 p-3.5 rounded-xl border border-gray-100 bg-gray-50 hover:bg-white hover:border-blue-200 hover:shadow-md transition-all duration-200 active:scale-[0.97] text-left"
               >
                 {tool.isNew && (
-                  <span className="absolute top-2 right-2 px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-medium rounded-full">
+                  <span className="absolute top-1.5 right-1.5 px-1 py-px bg-red-500 text-white text-[8px] font-semibold rounded">
                     NEW
                   </span>
                 )}
-                <div className={`w-12 h-12 rounded-xl ${tool.bgColor} ${tool.color} flex items-center justify-center mb-2`}>
+                <div className={`w-11 h-11 rounded-xl ${tool.bgColor} ${tool.color} flex items-center justify-center flex-shrink-0`}>
                   {tool.icon}
                 </div>
-                <span className="text-xs font-medium text-gray-800 text-center">{tool.title}</span>
-                <span className="text-[10px] text-gray-400 mt-0.5 text-center line-clamp-1">
-                  {tool.description}
-                </span>
+                <div className="min-w-0">
+                  <span className="block text-sm font-semibold text-gray-900">{tool.title}</span>
+                  <span className="block text-xs text-gray-500 mt-0.5 leading-snug">
+                    {tool.description}
+                  </span>
+                </div>
               </button>
             ))}
-          </div>
-        </div>
 
-        {/* 底部提示 */}
-        <div className="mt-4 text-center">
-          <p className="text-xs text-gray-400">所有工具均在本地处理，保护您的隐私安全</p>
+            {/* 敬请期待虚线卡片 */}
+            <button
+              onClick={() => navigate('/tools')}
+              className="flex flex-col items-center justify-center p-3.5 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 active:scale-[0.97] text-center gap-1.5"
+            >
+              <div className="w-11 h-11 rounded-xl bg-gray-100 text-gray-400 flex items-center justify-center">
+                <Plus className="w-5 h-5" />
+              </div>
+              <span className="text-xs text-gray-400 font-medium">更多工具即将上线</span>
+            </button>
+          </div>
         </div>
 
         {/* 技术讨论群 */}
@@ -131,9 +102,9 @@ export default function Home() {
               <img
                 src="/wechat-tech-group.png"
                 alt="YaoBox技术群二维码"
-                className="w-28 h-28 object-contain"
+                className="w-32 h-32 object-contain"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="112" height="112" viewBox="0 0 112 112"><rect fill="%23f3f4f6" width="112" height="112"/><text fill="%239ca3af" font-size="12" text-anchor="middle" x="56" y="56">群二维码</text></svg>';
+                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><rect fill="%23f3f4f6" width="128" height="128"/><text fill="%239ca3af" font-size="12" text-anchor="middle" x="64" y="64">群二维码</text></svg>';
                 }}
               />
             </div>
@@ -142,9 +113,12 @@ export default function Home() {
                 <Users className="w-4 h-4 text-blue-600" />
                 <h3 className="text-sm font-semibold text-gray-900">技术讨论群</h3>
               </div>
-              <p className="text-xs text-gray-500">群聊：YaoBox技术群</p>
-              <p className="text-xs text-gray-400 mt-1.5">
-                使用问题、功能建议、新工具预告，扫码进群一起聊
+              <p className="text-xs text-gray-500 mb-1">群聊：YaoBox技术群</p>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                使用问题、功能建议、新工具预告
+              </p>
+              <p className="text-[11px] text-blue-500 mt-1.5 font-medium">
+                长按二维码识别 · 或截图保存后扫码
               </p>
             </div>
           </div>
