@@ -9,7 +9,7 @@ export default function UserCenter() {
 
   if (!user) {
     return (
-      <div className="flex-1 bg-gray-50 flex items-center justify-center p-4">
+      <div className="flex-1 bg-transparent flex items-center justify-center p-4">
         <div className="text-center">
           <p className="text-gray-600 mb-4">请先登录</p>
           <button
@@ -52,7 +52,7 @@ export default function UserCenter() {
   ];
 
   return (
-    <div className="flex-1 bg-gray-50 py-8 px-4">
+    <div className="flex-1 bg-transparent py-8 px-4">
       <div className="max-w-3xl mx-auto">
         <div className="bg-white rounded-2xl p-6 mb-6 shadow-sm border border-gray-200">
           <div className="flex items-center space-x-4">

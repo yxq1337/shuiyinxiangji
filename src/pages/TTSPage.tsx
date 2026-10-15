@@ -256,7 +256,7 @@ export default function TTSPage() {
   };
 
   return (
-    <div className="flex-1 bg-gray-50">
+    <div className="flex-1 bg-transparent">
       <div className="max-w-2xl mx-auto px-4 py-6">
         <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-6">
           <ArrowLeft className="w-4 h-4" />
@@ -297,7 +297,7 @@ export default function TTSPage() {
 
           {/* 设置面板 */}
           {showSettings && (
-            <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <div className="mb-4 p-4 bg-transparent rounded-xl border border-gray-200">
               <h3 className="text-sm font-semibold text-gray-800 mb-3">合成模式</h3>
               <div className="flex gap-2 mb-4">
                 <button

@@ -15,7 +15,7 @@ export default function CustomerService() {
   };
 
   return (
-    <div className="flex-1 bg-gray-50">
+    <div className="flex-1 bg-transparent">
       <div className="max-w-md mx-auto px-4 py-6">
         <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-6">
           <ArrowLeft className="w-4 h-4" />
@@ -42,7 +42,7 @@ export default function CustomerService() {
             />
           </div>
 
-          <div className="bg-gray-50 rounded-xl p-4 mb-4">
+          <div className="bg-transparent rounded-xl p-4 mb-4">
             <p className="text-xs text-gray-500 mb-2">微信号</p>
             <div className="flex items-center justify-center gap-2">
               <span className="text-lg font-semibold text-gray-800">{wechatId}</span>

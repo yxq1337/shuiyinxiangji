@@ -45,7 +45,7 @@ export default function Login() {
   };
 
   return (
-    <div className="flex-1 bg-gray-50 flex items-center justify-center p-4">
+    <div className="flex-1 bg-transparent flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -155,7 +155,7 @@ export default function Login() {
         </div>
 
         {mode === 'user' && (
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg">
+          <div className="mt-8 p-4 bg-transparent rounded-lg">
             <p className="text-xs text-gray-500 text-center">
               提示：输入任意手机号即可体验
             </p>

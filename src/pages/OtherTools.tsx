@@ -13,7 +13,7 @@ export default function OtherTools() {
   ];
 
   return (
-    <div className="flex-1 bg-gray-50">
+    <div className="flex-1 bg-transparent">
       <div className="max-w-6xl mx-auto px-4 py-6">
         <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-6">
           <ArrowLeft className="w-4 h-4" />
@@ -31,7 +31,7 @@ export default function OtherTools() {
             {comingSoonTools.map((tool) => (
               <div
                 key={tool.name}
-                className="p-3 bg-gray-50 rounded-xl border border-gray-100"
+                className="p-3 bg-transparent rounded-xl border border-gray-100"
               >
                 <div className="flex items-center gap-2 mb-1">
                   <Sparkles className="w-4 h-4 text-gray-300" />

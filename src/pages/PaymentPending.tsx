@@ -94,7 +94,7 @@ export default function PaymentPending() {
 
   if (!orderId) {
     return (
-      <div className="flex-1 bg-gray-50 flex items-center justify-center p-4">
+      <div className="flex-1 bg-transparent flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl p-8 border border-gray-200 text-center">
           <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <p className="text-gray-500 mb-4">订单信息缺失</p>
@@ -110,13 +110,13 @@ export default function PaymentPending() {
   }
 
   return (
-    <div className="flex-1 bg-gray-50 py-8 px-4">
+    <div className="flex-1 bg-transparent py-8 px-4">
       <div className="max-w-md mx-auto bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
         {status === 'created' && (
           <>
             <h1 className="text-xl font-bold text-gray-900 text-center mb-2">扫码支付</h1>
             <p className="text-center text-gray-500 mb-6">用微信扫下方二维码完成支付</p>
-            <div className="bg-gray-50 rounded-lg p-6 text-center mb-6">
+            <div className="bg-transparent rounded-lg p-6 text-center mb-6">
               <img
                 src={orderInfo?.qr_url || '/wechat-pay-qr.png'}
                 alt="收款码"
@@ -174,7 +174,7 @@ export default function PaymentPending() {
               </button>
               <button
                 onClick={() => navigate('/my')}
-                className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50"
+                className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-transparent"
               >
                 个人中心
               </button>

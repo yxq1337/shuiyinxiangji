@@ -333,7 +333,7 @@ export default function WatermarkApp() {
   };
 
   return (
-    <div className="flex-1 bg-gray-50">
+    <div className="flex-1 bg-transparent">
       {isFreeUser && (
         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-b border-yellow-200">
           <div className="max-w-6xl mx-auto px-3 py-2 flex items-center justify-between">
@@ -364,7 +364,7 @@ export default function WatermarkApp() {
                     ? 'border-red-300 hover:bg-red-50'
                     : isDragging
                     ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-300 hover:bg-gray-50'
+                    : 'border-gray-300 hover:bg-transparent'
                 }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -396,7 +396,7 @@ export default function WatermarkApp() {
                   />
                 </div>
                 <div className="mt-2.5 flex gap-2 w-full">
-                  <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors text-sm font-medium">
+                  <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-transparent cursor-pointer transition-colors text-sm font-medium">
                     <ImageIcon className="w-4 h-4" />
                     更换
                     <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
@@ -524,7 +524,7 @@ export default function WatermarkApp() {
             <div className="flex space-x-4">
               <button
                 onClick={() => setShowVipModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-transparent"
               >
                 稍后再说
               </button>

@@ -39,7 +39,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="flex-1 bg-gray-50">
+    <div className="flex-1 bg-transparent">
       {/* 精简横幅：无 LOGO（导航栏已有），只留标语 + 隐私卖点 */}
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
         <div className="max-w-6xl mx-auto px-4 py-5">
@@ -63,7 +63,7 @@ export default function Home() {
               <button
                 key={tool.id}
                 onClick={() => navigate(tool.path)}
-                className="relative flex items-start gap-3 p-3.5 rounded-xl border border-gray-100 bg-gray-50 hover:bg-white hover:border-blue-200 hover:shadow-md transition-all duration-200 active:scale-[0.97] text-left"
+                className="relative flex items-start gap-3 p-3.5 rounded-xl border border-gray-100 bg-transparent hover:bg-white hover:border-blue-200 hover:shadow-md transition-all duration-200 active:scale-[0.97] text-left"
               >
                 {tool.isNew && (
                   <span className="absolute top-1.5 right-1.5 px-1 py-px bg-red-500 text-white text-[8px] font-semibold rounded">
@@ -85,7 +85,7 @@ export default function Home() {
             {/* 敬请期待虚线卡片 */}
             <button
               onClick={() => navigate('/tools')}
-              className="flex flex-col items-center justify-center p-3.5 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 active:scale-[0.97] text-center gap-1.5"
+              className="flex flex-col items-center justify-center p-3.5 rounded-xl border-2 border-dashed border-gray-200 bg-transparent/50 hover:bg-transparent hover:border-gray-300 transition-all duration-200 active:scale-[0.97] text-center gap-1.5"
             >
               <div className="w-11 h-11 rounded-xl bg-gray-100 text-gray-400 flex items-center justify-center">
                 <Plus className="w-5 h-5" />
