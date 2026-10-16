@@ -428,6 +428,169 @@ app.post('/api/payments', async (c) => {
   return c.json({ success: true, payment });
 });
 
+// ==================== 骑手社区 API ====================
+
+const COMMUNITY_EXPIRE_DAYS = 15;
+
+function maskContact(contact: string): string {
+  const s = String(contact || '');
+  if (s.length <= 7) return s.replace(/./g, '*');
+  return s.slice(0, 3) + '****' + s.slice(-4);
+}
+
+function mapListing(row: any, reveal = false) {
+  let extra: any = {};
+  try { extra = row.extra ? JSON.parse(row.extra) : {}; } catch {}
+  return {
+    id: row.id,
+    category: row.category,
+    title: row.title,
+    description: row.description,
+    city: row.city,
+    area: row.area,
+    price: Number(row.price || 0),
+    contact: reveal ? String(row.contact || '') : maskContact(String(row.contact || '')),
+    extra,
+    userId: row.user_id,
+    userPhone: row.user_phone,
+    status: row.status,
+    rejectReason: row.reject_reason,
+    viewCount: Number(row.view_count || 0),
+    contactRevealCount: Number(row.contact_reveal_count || 0),
+    reportCount: Number(row.report_count || 0),
+    createdAt: row.created_at,
+    approvedAt: row.approved_at,
+    expiresAt: row.expires_at,
+  };
+}
+
+// 信息列表（仅返回已上架且未过期的）
+app.get('/api/community/listings', async (c) => {
+  const { category, city, area, minPrice, maxPrice, page = '1', pageSize = '20' } = c.req.query();
+  const db = c.env.DB;
+  const now = new Date().toISOString();
+
+  const conditions = ["status = 'approved'", "(expires_at IS NULL OR expires_at > ?)"];
+  const binds: any[] = [now];
+  if (category) { conditions.push('category = ?'); binds.push(category); }
+  if (city) { conditions.push('city = ?'); binds.push(city); }
+  if (area) { conditions.push('area = ?'); binds.push(area); }
+  if (minPrice) { conditions.push('price >= ?'); binds.push(Number(minPrice)); }
+  if (maxPrice) { conditions.push('price <= ?'); binds.push(Number(maxPrice)); }
+
+  const limit = Math.min(Number(pageSize) || 20, 100);
+  const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
+  binds.push(limit, offset);
+
+  const sql = `SELECT * FROM community_listings WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+  const result = await db.prepare(sql).bind(...binds).all();
+  return c.json({ listings: (result.results || []).map((r) => mapListing(r)) });
+});
+
+// 信息详情（不返回真实联系方式，需单独调用 reveal）
+app.get('/api/community/listings/:id', async (c) => {
+  const id = c.req.param('id');
+  const row = await c.env.DB.prepare('SELECT * FROM community_listings WHERE id = ?').bind(id).first();
+  if (!row) return c.json({ success: false, error: '信息不存在' }, 404);
+  // 浏览量 +1
+  await c.env.DB.prepare('UPDATE community_listings SET view_count = view_count + 1 WHERE id = ?').bind(id).run();
+  return c.json({ listing: mapListing({ ...row, view_count: Number(row.view_count || 0) + 1 }) });
+});
+
+// 发布信息（默认待审核）
+app.post('/api/community/listings', async (c) => {
+  const body = await c.req.json();
+  const { category, title, description, city, area, price, contact, extra, userId, userPhone } = body;
+  if (!category || !title || !contact) {
+    return c.json({ success: false, error: '分类、标题、联系方式不能为空' }, 400);
+  }
+  if (!['battery', 'job', 'usedcar', 'help'].includes(category)) {
+    return c.json({ success: false, error: '无效的分类' }, 400);
+  }
+
+  const id = 'cl' + Date.now() + Math.random().toString(36).slice(2, 6);
+  const now = new Date().toISOString();
+  const extraStr = extra ? JSON.stringify(extra) : '{}';
+
+  await c.env.DB
+    .prepare(
+      `INSERT INTO community_listings (id, category, title, description, city, area, price, contact, extra, user_id, user_phone, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
+    )
+    .bind(id, category, title, description || '', city || '', area || '', Number(price || 0), contact, extraStr, userId || '', userPhone || '', now)
+    .run();
+
+  return c.json({ success: true, id, message: '发布成功，等待人工审核' });
+});
+
+// 点击查看联系方式（记录次数，防爬）
+app.post('/api/community/listings/:id/reveal-contact', async (c) => {
+  const id = c.req.param('id');
+  const row = await c.env.DB.prepare('SELECT contact FROM community_listings WHERE id = ? AND status = ?').bind(id, 'approved').first();
+  if (!row) return c.json({ success: false, error: '信息不存在或未上架' }, 404);
+  await c.env.DB.prepare('UPDATE community_listings SET contact_reveal_count = contact_reveal_count + 1 WHERE id = ?').bind(id).run();
+  return c.json({ contact: String(row.contact || '') });
+});
+
+// 举报
+app.post('/api/community/listings/:id/report', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const reason = String(body.reason || '').trim();
+  if (!reason) return c.json({ success: false, error: '请填写举报原因' }, 400);
+
+  const reportId = 'rp' + Date.now() + Math.random().toString(36).slice(2, 6);
+  const now = new Date().toISOString();
+  await c.env.DB
+    .prepare('INSERT INTO community_reports (id, listing_id, reason, reporter_id, reporter_phone, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(reportId, id, reason, body.reporterId || '', body.reporterPhone || '', now)
+    .run();
+  await c.env.DB.prepare('UPDATE community_listings SET report_count = report_count + 1 WHERE id = ?').bind(id).run();
+
+  return c.json({ success: true, message: '举报已提交，我们会尽快处理' });
+});
+
+// -------- 社区管理后台 --------
+
+// 待审核列表
+app.get('/api/admin/community/pending', async (c) => {
+  const result = await c.env.DB
+    .prepare("SELECT * FROM community_listings WHERE status = 'pending' ORDER BY created_at DESC")
+    .all();
+  return c.json({ listings: (result.results || []).map((r) => mapListing(r, true)) });
+});
+
+// 审核通过（设置 15 天后过期）
+app.post('/api/admin/community/:id/approve', async (c) => {
+  const id = c.req.param('id');
+  const row = await c.env.DB.prepare('SELECT * FROM community_listings WHERE id = ?').bind(id).first();
+  if (!row) return c.json({ success: false, error: '信息不存在' }, 404);
+  if (row.status !== 'pending') return c.json({ success: false, error: '该信息不处于待审核状态' }, 400);
+
+  const now = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + COMMUNITY_EXPIRE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  await c.env.DB
+    .prepare("UPDATE community_listings SET status = 'approved', approved_at = ?, expires_at = ? WHERE id = ?")
+    .bind(now, expiresAt, id)
+    .run();
+  return c.json({ success: true });
+});
+
+// 审核驳回
+app.post('/api/admin/community/:id/reject', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const reason = String(body.reason || '内容不符合规范');
+  const row = await c.env.DB.prepare('SELECT * FROM community_listings WHERE id = ?').bind(id).first();
+  if (!row) return c.json({ success: false, error: '信息不存在' }, 404);
+
+  await c.env.DB
+    .prepare("UPDATE community_listings SET status = 'rejected', reject_reason = ? WHERE id = ?")
+    .bind(reason, id)
+    .run();
+  return c.json({ success: true });
+});
+
 // ==================== 管理后台 API ====================
 app.get('/api/admin/users', async (c) => {
   const result = await c.env.DB.prepare('SELECT * FROM users ORDER BY created_at DESC').all();

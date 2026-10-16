@@ -48,6 +48,107 @@ let appSettings = {
   resend_api_key: ''
 };
 
+// 社区信息（内存存储）
+interface CommunityListing {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  city: string;
+  area: string;
+  price: number;
+  contact: string;
+  extra: any;
+  user_id: string;
+  user_phone: string;
+  status: 'pending' | 'approved' | 'rejected' | 'offline';
+  reject_reason?: string;
+  view_count: number;
+  contact_reveal_count: number;
+  report_count: number;
+  created_at: string;
+  approved_at?: string;
+  expires_at?: string;
+}
+
+interface CommunityReport {
+  id: string;
+  listing_id: string;
+  reason: string;
+  reporter_id: string;
+  reporter_phone: string;
+  created_at: string;
+}
+
+const COMMUNITY_EXPIRE_DAYS = 15;
+
+let communityListings: CommunityListing[] = [
+  {
+    id: 'cl-demo-battery-1', category: 'battery', title: '星恒 48V20Ah 锂电池出租，支持换电',
+    description: '星恒品牌锂电池，48V20Ah，续航约50公里，支持全城换电，押金可退。',
+    city: '上海', area: '浦东新区', price: 299, contact: '13812341234',
+    extra: { brand: '星恒', capacity: '48V20Ah', monthlyRent: 299, deposit: 500, swappable: true, coverageArea: '浦东新区、徐汇区' },
+    user_id: 'demo', user_phone: '13800138000', status: 'approved',
+    view_count: 12, contact_reveal_count: 3, report_count: 0,
+    created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+    approved_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+    expires_at: new Date(Date.now() + 13 * 86400000).toISOString(),
+  },
+  {
+    id: 'cl-demo-job-1', category: 'job', title: '美团专送骑手招聘，单价高，单量稳',
+    description: '美团专送，站点直招，单价7元/单起，月入8000+，提供装备和电池。',
+    city: '北京', area: '朝阳区', price: 7, contact: '13956785678',
+    extra: { platform: '美团', jobType: '专送', unitPrice: 7, requirements: '会骑电动车，身体健康' },
+    user_id: 'demo', user_phone: '13900139000', status: 'approved',
+    view_count: 28, contact_reveal_count: 8, report_count: 0,
+    created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+    approved_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+    expires_at: new Date(Date.now() + 14 * 86400000).toISOString(),
+  },
+  {
+    id: 'cl-demo-usedcar-1', category: 'usedcar', title: '雅迪电动车转让，9成新，手续齐全',
+    description: '雅迪冠能M6，2023年购入，行驶3000公里，电池健康，有牌照有发票。',
+    city: '深圳', area: '南山区', price: 1800, contact: '13790129012',
+    extra: { brand: '雅迪', carAge: 2, batteryCondition: '良好', hasDocuments: true, hasPlate: true },
+    user_id: 'demo', user_phone: '13700000000', status: 'approved',
+    view_count: 45, contact_reveal_count: 12, report_count: 0,
+    created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+    approved_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+    expires_at: new Date(Date.now() + 12 * 86400000).toISOString(),
+  },
+];
+let communityReports: CommunityReport[] = [];
+
+function maskContact(contact: string): string {
+  const s = String(contact || '');
+  if (s.length <= 7) return s.replace(/./g, '*');
+  return s.slice(0, 3) + '****' + s.slice(-4);
+}
+
+function mapListingDev(l: CommunityListing, reveal = false) {
+  return {
+    id: l.id,
+    category: l.category,
+    title: l.title,
+    description: l.description,
+    city: l.city,
+    area: l.area,
+    price: l.price,
+    contact: reveal ? l.contact : maskContact(l.contact),
+    extra: l.extra,
+    userId: l.user_id,
+    userPhone: l.user_phone,
+    status: l.status,
+    rejectReason: l.reject_reason,
+    viewCount: l.view_count,
+    contactRevealCount: l.contact_reveal_count,
+    reportCount: l.report_count,
+    createdAt: l.created_at,
+    approvedAt: l.approved_at,
+    expiresAt: l.expires_at,
+  };
+}
+
 // 工具函数
 function generateOrderId(): string {
   const now = new Date();
@@ -412,6 +513,104 @@ async function startServer() {
     }
 
     res.json({ success: true, payment });
+  });
+
+  // ==================== 骑手社区 API ====================
+
+  // 信息列表（仅返回已上架且未过期的）
+  app.get('/api/community/listings', (req, res) => {
+    const { category, city, area, minPrice, maxPrice } = req.query;
+    const now = new Date().toISOString();
+    let list = communityListings.filter(l => l.status === 'approved' && (!l.expires_at || l.expires_at > now));
+    if (category) list = list.filter(l => l.category === category);
+    if (city) list = list.filter(l => l.city === city);
+    if (area) list = list.filter(l => l.area === area);
+    if (minPrice) list = list.filter(l => l.price >= Number(minPrice));
+    if (maxPrice) list = list.filter(l => l.price <= Number(maxPrice));
+    list = list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    res.json({ listings: list.map(l => mapListingDev(l)) });
+  });
+
+  // 信息详情
+  app.get('/api/community/listings/:id', (req, res) => {
+    const l = communityListings.find(x => x.id === req.params.id);
+    if (!l) return res.status(404).json({ success: false, error: '信息不存在' });
+    l.view_count += 1;
+    res.json({ listing: mapListingDev(l) });
+  });
+
+  // 发布信息
+  app.post('/api/community/listings', (req, res) => {
+    const { category, title, description, city, area, price, contact, extra, userId, userPhone } = req.body;
+    if (!category || !title || !contact) return res.status(400).json({ success: false, error: '分类、标题、联系方式不能为空' });
+    if (!['battery', 'job', 'usedcar', 'help'].includes(category)) return res.status(400).json({ success: false, error: '无效的分类' });
+
+    const id = 'cl' + Date.now() + Math.random().toString(36).slice(2, 6);
+    const now = new Date().toISOString();
+    const listing: CommunityListing = {
+      id, category, title, description: description || '', city: city || '', area: area || '',
+      price: Number(price || 0), contact, extra: extra || {},
+      user_id: userId || '', user_phone: userPhone || '', status: 'pending',
+      view_count: 0, contact_reveal_count: 0, report_count: 0, created_at: now,
+    };
+    communityListings.push(listing);
+    res.json({ success: true, id, message: '发布成功，等待人工审核' });
+  });
+
+  // 查看联系方式
+  app.post('/api/community/listings/:id/reveal-contact', (req, res) => {
+    const l = communityListings.find(x => x.id === req.params.id && x.status === 'approved');
+    if (!l) return res.status(404).json({ success: false, error: '信息不存在或未上架' });
+    l.contact_reveal_count += 1;
+    res.json({ contact: l.contact });
+  });
+
+  // 举报
+  app.post('/api/community/listings/:id/report', (req, res) => {
+    const l = communityListings.find(x => x.id === req.params.id);
+    if (!l) return res.status(404).json({ success: false, error: '信息不存在' });
+    const reason = String(req.body.reason || '').trim();
+    if (!reason) return res.status(400).json({ success: false, error: '请填写举报原因' });
+
+    const report: CommunityReport = {
+      id: 'rp' + Date.now() + Math.random().toString(36).slice(2, 6),
+      listing_id: l.id, reason,
+      reporter_id: req.body.reporterId || '',
+      reporter_phone: req.body.reporterPhone || '',
+      created_at: new Date().toISOString(),
+    };
+    communityReports.push(report);
+    l.report_count += 1;
+    res.json({ success: true, message: '举报已提交，我们会尽快处理' });
+  });
+
+  // 待审核列表
+  app.get('/api/admin/community/pending', (req, res) => {
+    const list = communityListings
+      .filter(l => l.status === 'pending')
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    res.json({ listings: list.map(l => mapListingDev(l, true)) });
+  });
+
+  // 审核通过
+  app.post('/api/admin/community/:id/approve', (req, res) => {
+    const l = communityListings.find(x => x.id === req.params.id);
+    if (!l) return res.status(404).json({ success: false, error: '信息不存在' });
+    if (l.status !== 'pending') return res.status(400).json({ success: false, error: '该信息不处于待审核状态' });
+    const now = new Date().toISOString();
+    l.status = 'approved';
+    l.approved_at = now;
+    l.expires_at = new Date(Date.now() + COMMUNITY_EXPIRE_DAYS * 86400000).toISOString();
+    res.json({ success: true });
+  });
+
+  // 审核驳回
+  app.post('/api/admin/community/:id/reject', (req, res) => {
+    const l = communityListings.find(x => x.id === req.params.id);
+    if (!l) return res.status(404).json({ success: false, error: '信息不存在' });
+    l.status = 'rejected';
+    l.reject_reason = String(req.body.reason || '内容不符合规范');
+    res.json({ success: true });
   });
 
   // ==================== 管理后台 API ====================

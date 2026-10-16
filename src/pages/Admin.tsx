@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, CreditCard, TrendingUp, Settings, DollarSign, UserPlus, Calendar, Edit2, Check, XCircle, Image as ImageIcon, Save, UserCog } from 'lucide-react';
+import { Users, CreditCard, TrendingUp, Settings, DollarSign, UserPlus, Calendar, Edit2, Check, XCircle, Image as ImageIcon, Save, UserCog, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiGet, apiPost } from '../lib/api';
+import { listPendingListings, approveListing, rejectListing, getCategoryMeta, type CommunityListing } from '../lib/community';
 
 interface Stats {
   totalRevenue: string;
@@ -62,10 +63,13 @@ export default function Admin() {
   const [enlargedImg, setEnlargedImg] = useState<string | null>(null);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'review' | 'users' | 'payments' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'review' | 'community' | 'users' | 'payments' | 'settings'>('dashboard');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editVipForm, setEditVipForm] = useState({ isVip: false, vipDays: 30 });
   const [savingUser, setSavingUser] = useState(false);
+  // 社区审核
+  const [pendingListings, setPendingListings] = useState<CommunityListing[]>([]);
+  const [listingReviewLoading, setListingReviewLoading] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.isAdmin) {
@@ -124,8 +128,47 @@ export default function Admin() {
         console.error('加载待审核数量失败', e);
         setPendingCount(0);
       }
+
+      try {
+        const listings = await listPendingListings();
+        setPendingListings(listings);
+      } catch (e) {
+        console.error('加载待审核社区信息失败', e);
+        setPendingListings([]);
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApproveListing = async (id: string) => {
+    if (!confirm('确定通过该信息？通过后将展示 15 天')) return;
+    setListingReviewLoading(id);
+    try {
+      const r = await approveListing(id);
+      if (r.success) {
+        await loadData();
+      } else {
+        alert('操作失败');
+      }
+    } finally {
+      setListingReviewLoading(null);
+    }
+  };
+
+  const handleRejectListing = async (id: string) => {
+    const reason = prompt('请填写驳回原因：');
+    if (!reason) return;
+    setListingReviewLoading(id);
+    try {
+      const r = await rejectListing(id, reason);
+      if (r.success) {
+        await loadData();
+      } else {
+        alert('操作失败');
+      }
+    } finally {
+      setListingReviewLoading(null);
     }
   };
 
@@ -221,6 +264,7 @@ export default function Admin() {
   const tabs = [
     { id: 'dashboard', label: '仪表盘', icon: TrendingUp, badge: undefined },
     { id: 'review', label: '支付审核', icon: Check, badge: pendingCount },
+    { id: 'community', label: '社区审核', icon: MessageSquare, badge: pendingListings.length },
     { id: 'users', label: '用户管理', icon: Users },
     { id: 'payments', label: '支付记录', icon: CreditCard },
     { id: 'settings', label: '系统设置', icon: Settings },
@@ -448,6 +492,98 @@ export default function Admin() {
               >
                 <img src={enlargedImg} alt="放大" className="max-w-full max-h-full rounded" />
               </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'community' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">待审核社区信息 ({pendingListings.length})</h3>
+              <button onClick={loadData} className="text-sm text-blue-600 hover:underline">刷新</button>
+            </div>
+            {pendingListings.length === 0 ? (
+              <div className="bg-white rounded-xl p-12 border border-gray-200 text-center text-gray-500">
+                暂无待审核信息
+              </div>
+            ) : (
+              pendingListings.map((l) => {
+                const meta = getCategoryMeta(l.category);
+                const e = l.extra || {};
+                return (
+                  <div key={l.id} className="bg-white rounded-xl border border-gray-200 p-6">
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${meta.bgColor} ${meta.color}`}>
+                            {meta.label}
+                          </span>
+                          {l.city && <span className="text-xs text-gray-400">{l.city}{l.area ? ` · ${l.area}` : ''}</span>}
+                          <span className="text-xs text-gray-400">{new Date(l.createdAt).toLocaleString('zh-CN')}</span>
+                        </div>
+                        <h4 className="font-semibold text-gray-900">{l.title}</h4>
+                        <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{l.description}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-lg font-bold text-red-500">
+                          {l.price > 0 ? `¥${l.price}` : '面议'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 分类专属字段 */}
+                    {l.category === 'battery' && (
+                      <div className="bg-gray-50 rounded-lg p-3 mb-3 text-xs text-gray-600 grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {e.brand && <span>品牌: {e.brand}</span>}
+                        {e.capacity && <span>容量: {e.capacity}</span>}
+                        {e.monthlyRent != null && <span>月租: ¥{e.monthlyRent}</span>}
+                        {e.deposit != null && <span>押金: ¥{e.deposit}</span>}
+                        {e.swappable != null && <span>换电: {e.swappable ? '是' : '否'}</span>}
+                        {e.coverageArea && <span>覆盖: {e.coverageArea}</span>}
+                      </div>
+                    )}
+                    {l.category === 'job' && (
+                      <div className="bg-gray-50 rounded-lg p-3 mb-3 text-xs text-gray-600 grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {e.platform && <span>平台: {e.platform}</span>}
+                        {e.jobType && <span>类型: {e.jobType}</span>}
+                        {e.unitPrice != null && <span>单价: ¥{e.unitPrice}/单</span>}
+                        {e.requirements && <span className="col-span-2">要求: {e.requirements}</span>}
+                      </div>
+                    )}
+                    {l.category === 'usedcar' && (
+                      <div className="bg-gray-50 rounded-lg p-3 mb-3 text-xs text-gray-600 grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {e.brand && <span>品牌: {e.brand}</span>}
+                        {e.carAge != null && <span>车龄: {e.carAge}年</span>}
+                        {e.batteryCondition && <span>电池: {e.batteryCondition}</span>}
+                        {e.hasDocuments != null && <span>手续: {e.hasDocuments ? '有' : '无'}</span>}
+                        {e.hasPlate != null && <span>牌照: {e.hasPlate ? '有' : '无'}</span>}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
+                      <span>发布者: {l.userPhone || '匿名'}</span>
+                      <span>联系方式: {l.contact}</span>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        disabled={listingReviewLoading === l.id}
+                        onClick={() => handleApproveListing(l.id)}
+                        className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center text-sm font-medium"
+                      >
+                        <Check className="w-4 h-4 mr-1" /> 通过（展示15天）
+                      </button>
+                      <button
+                        disabled={listingReviewLoading === l.id}
+                        onClick={() => handleRejectListing(l.id)}
+                        className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center text-sm font-medium"
+                      >
+                        <XCircle className="w-4 h-4 mr-1" /> 驳回
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         )}
