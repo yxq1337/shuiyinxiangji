@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 export default function CustomerService() {
   const [copied, setCopied] = useState(false);
-  const wechatId = 'YaoBoxKF';
+  const wechatId = 'yxq86520';
 
   const handleCopy = () => {
     navigator.clipboard.writeText(wechatId).then(() => {
