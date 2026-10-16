@@ -68,24 +68,25 @@ export default function Navbar() {
               )}
             </div>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             <Link
               to="/customer-service"
-              className="text-gray-500 hover:text-gray-700 transition-colors"
-              title="联系客服"
+              className="flex items-center gap-1 text-gray-500 hover:text-gray-700 transition-colors px-2 py-1.5 rounded-full hover:bg-white/40"
             >
               <MessageCircle className="w-5 h-5" />
+              <span className="text-xs font-medium hidden sm:inline">客服</span>
             </Link>
             {user ? (
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
                 {user.isVip && (
                   <div className="flex items-center space-x-1 text-yellow-600 bg-yellow-50/80 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs">
                     <Crown className="w-3.5 h-3.5" />
                     <span className="font-medium">VIP</span>
                   </div>
                 )}
-                <Link to="/my" className="flex items-center space-x-1.5" title="个人中心（退出登录在个人中心内）">
-                  <User className="w-5 h-5 text-gray-500" />
+                <Link to="/my" className="flex items-center gap-1 text-gray-600 hover:text-gray-900 transition-colors px-2 py-1.5 rounded-full hover:bg-white/40" title="个人中心（退出登录在个人中心内）">
+                  <User className="w-5 h-5" />
+                  <span className="text-xs font-medium sm:hidden">我的</span>
                   <span className="text-sm text-gray-700 hidden sm:inline">{user.phone}</span>
                 </Link>
               </div>
