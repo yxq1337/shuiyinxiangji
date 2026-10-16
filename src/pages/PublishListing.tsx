@@ -36,6 +36,7 @@ export default function PublishListing() {
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   // 分类专属字段
   const [extra, setExtra] = useState<ListingExtra>({});
@@ -46,9 +47,10 @@ export default function PublishListing() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) return alert('请填写标题');
-    if (!contact.trim()) return alert('请填写联系方式');
-    if (!agreed) return alert('请阅读并同意禁发清单与免责声明');
+    setErrorMsg('');
+    if (!title.trim()) { setErrorMsg('请填写标题'); return; }
+    if (!contact.trim()) { setErrorMsg('请填写联系方式'); return; }
+    if (!agreed) { setErrorMsg('请先勾选并同意禁发清单与免责声明'); return; }
 
     setSubmitting(true);
     try {
@@ -68,9 +70,11 @@ export default function PublishListing() {
       if (res.success) {
         setSuccess(true);
         setTimeout(() => navigate('/community'), 2000);
+      } else {
+        setErrorMsg('发布失败，请稍后重试');
       }
     } catch (err: any) {
-      alert(err.message || '发布失败，请重试');
+      setErrorMsg(err.message || '网络异常，请稍后重试');
     } finally {
       setSubmitting(false);
     }
@@ -339,10 +343,15 @@ export default function PublishListing() {
           </div>
 
           {/* 提交按钮 */}
+          {errorMsg && (
+            <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-2.5 text-center">
+              {errorMsg}
+            </div>
+          )}
           <button
             type="submit"
             disabled={submitting || !agreed}
-            className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-semibold text-base hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-[#246BFD] text-white rounded-xl font-semibold text-base hover:bg-[#1d57d4] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
             <Shield className="w-5 h-5" />
             {submitting ? '提交中...' : '提交审核'}

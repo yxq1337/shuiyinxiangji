@@ -14,6 +14,8 @@ const _ = db.command;
 const usersCollection = db.collection('users');
 const paymentsCollection = db.collection('payments');
 const settingsCollection = db.collection('settings');
+const communityListingsCollection = db.collection('community_listings');
+const communityReportsCollection = db.collection('community_reports');
 
 // 工具函数
 function generateOrderId() {
@@ -804,6 +806,192 @@ exports.main = async (event, context) => {
         headers,
         body: JSON.stringify({ success: true })
       };
+    }
+
+    // ==================== 骑手社区 ====================
+
+    // 手机号脱敏
+    function maskPhone(phone) {
+      if (!phone) return '';
+      const s = String(phone);
+      if (s.length <= 7) return s.replace(/./g, '*');
+      return s.slice(0, 3) + '****' + s.slice(-4);
+    }
+
+    // 将 CloudBase 文档映射为前端期望的 CommunityListing
+    function mapListing(doc, maskContact) {
+      return {
+        id: doc._id,
+        category: doc.category,
+        title: doc.title,
+        description: doc.description || '',
+        city: doc.city || '',
+        area: doc.area || '',
+        price: doc.price || 0,
+        contact: maskContact === false ? doc.contact : maskPhone(doc.contact),
+        extra: doc.extra || {},
+        userId: doc.userId || '',
+        userPhone: doc.userPhone || '',
+        status: doc.status || 'pending',
+        rejectReason: doc.rejectReason,
+        viewCount: doc.viewCount || 0,
+        contactRevealCount: doc.contactRevealCount || 0,
+        reportCount: doc.reportCount || 0,
+        createdAt: doc.createdAt,
+        approvedAt: doc.approvedAt,
+        expiresAt: doc.expiresAt,
+      };
+    }
+
+    // -------- 社区列表 --------
+    if (httpMethod === 'GET' && path === '/community/listings') {
+      const q = event.queryStringParameters || {};
+      const now = new Date().toISOString();
+      let query = communityListingsCollection.where({
+        status: 'approved',
+        expiresAt: _.gte(now),
+      });
+      if (q.category) query = query.where({ category: q.category });
+      if (q.city) query = query.where({ city: q.city });
+      const result = await query.orderBy('createdAt', 'desc').limit(100).get();
+      let listings = result.data.map((d) => mapListing(d, true));
+      if (q.minPrice !== undefined) {
+        const min = Number(q.minPrice);
+        listings = listings.filter((l) => l.price >= min);
+      }
+      if (q.maxPrice !== undefined) {
+        const max = Number(q.maxPrice);
+        listings = listings.filter((l) => l.price <= max);
+      }
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ listings }),
+      };
+    }
+
+    // -------- 社区详情 --------
+    if (httpMethod === 'GET' && path.match(/^\/community\/listings\/[^/]+$/)) {
+      const id = path.split('/')[3];
+      const result = await communityListingsCollection.doc(id).get();
+      if (!result.data.length) {
+        return { statusCode: 404, headers, body: JSON.stringify({ success: false, error: '信息不存在' }) };
+      }
+      // 浏览量 +1
+      try { await communityListingsCollection.doc(id).update({ viewCount: _.inc(1) }); } catch (e) {}
+      const doc = result.data[0];
+      doc.viewCount = (doc.viewCount || 0) + 1;
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ listing: mapListing(doc, true) }),
+      };
+    }
+
+    // -------- 发布信息 --------
+    if (httpMethod === 'POST' && path === '/community/listings') {
+      const b = body || {};
+      if (!b.category || !b.title || !b.contact) {
+        return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: '缺少必填字段' }) };
+      }
+      const now = new Date().toISOString();
+      const res = await communityListingsCollection.add({
+        category: b.category,
+        title: String(b.title),
+        description: String(b.description || ''),
+        city: String(b.city || ''),
+        area: String(b.area || ''),
+        price: Number(b.price) || 0,
+        contact: String(b.contact),
+        extra: b.extra || {},
+        userId: b.userId || '',
+        userPhone: b.userPhone || '',
+        status: 'pending',
+        viewCount: 0,
+        contactRevealCount: 0,
+        reportCount: 0,
+        createdAt: now,
+      });
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ success: true, id: res.id, message: '发布成功，等待人工审核' }),
+      };
+    }
+
+    // -------- 查看联系方式（脱敏→真实） --------
+    if (httpMethod === 'POST' && path.match(/^\/community\/listings\/[^/]+\/reveal-contact$/)) {
+      const id = path.split('/')[3];
+      const result = await communityListingsCollection.doc(id).get();
+      if (!result.data.length) {
+        return { statusCode: 404, headers, body: JSON.stringify({ success: false, error: '信息不存在' }) };
+      }
+      try { await communityListingsCollection.doc(id).update({ contactRevealCount: _.inc(1) }); } catch (e) {}
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ contact: result.data[0].contact }),
+      };
+    }
+
+    // -------- 举报 --------
+    if (httpMethod === 'POST' && path.match(/^\/community\/listings\/[^/]+\/report$/)) {
+      const id = path.split('/')[3];
+      const b = body || {};
+      const now = new Date().toISOString();
+      await communityReportsCollection.add({
+        listingId: id,
+        reason: b.reason || '',
+        remark: b.remark || '',
+        reporterId: b.reporterId || '',
+        reporterPhone: b.reporterPhone || '',
+        createdAt: now,
+      });
+      try { await communityListingsCollection.doc(id).update({ reportCount: _.inc(1) }); } catch (e) {}
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ success: true }),
+      };
+    }
+
+    // -------- 管理：待审核列表 --------
+    if (httpMethod === 'GET' && path === '/admin/community/pending') {
+      const result = await communityListingsCollection
+        .where({ status: 'pending' })
+        .orderBy('createdAt', 'desc')
+        .limit(100)
+        .get();
+      const listings = result.data.map((d) => mapListing(d, false));
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ listings }),
+      };
+    }
+
+    // -------- 管理：审核通过 --------
+    if (httpMethod === 'POST' && path.match(/^\/admin\/community\/[^/]+\/approve$/)) {
+      const id = path.split('/')[3];
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString();
+      await communityListingsCollection.doc(id).update({
+        status: 'approved',
+        approvedAt: now.toISOString(),
+        expiresAt,
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
+    }
+
+    // -------- 管理：审核驳回 --------
+    if (httpMethod === 'POST' && path.match(/^\/admin\/community\/[^/]+\/reject$/)) {
+      const id = path.split('/')[3];
+      const b = body || {};
+      await communityListingsCollection.doc(id).update({
+        status: 'rejected',
+        rejectReason: b.reason || '',
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
     }
 
     // 404
