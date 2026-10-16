@@ -74,7 +74,12 @@ export default function WatermarkApp() {
 
   const isVip = user?.isVip;
   const isFreeUser = !isVip;
-  const shouldShowLimit = isFreeUser && useCount >= FREE_LIMIT;
+  // 注册不满 7 天的新用户免费使用，不限次数
+  const daysSinceRegister = user?.createdAt
+    ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+    : Infinity;
+  const isNewUser = daysSinceRegister < 7;
+  const shouldShowLimit = isFreeUser && !isNewUser && useCount >= FREE_LIMIT;
 
   useEffect(() => {
     const saved = localStorage.getItem('watermarkUseCount');
@@ -335,19 +340,28 @@ export default function WatermarkApp() {
   return (
     <div className="flex-1 bg-transparent">
       {isFreeUser && (
-        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-b border-yellow-200">
+        <div className={`border-b ${isNewUser ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' : 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200'}`}>
           <div className="max-w-6xl mx-auto px-3 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Crown className="w-4 h-4 text-yellow-600" />
-              <span className="text-yellow-800 text-xs">
-                剩余 <strong>{Math.max(0, FREE_LIMIT - useCount)}</strong> 次
-              </span>
-            </div>
+            {isNewUser ? (
+              <div className="flex items-center gap-2">
+                <Crown className="w-4 h-4 text-green-600" />
+                <span className="text-green-800 text-xs">
+                  新用户免费期：剩余 <strong>{7 - daysSinceRegister}</strong> 天
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Crown className="w-4 h-4 text-yellow-600" />
+                <span className="text-yellow-800 text-xs">
+                  剩余 <strong>{Math.max(0, FREE_LIMIT - useCount)}</strong> 次
+                </span>
+              </div>
+            )}
             <button
               onClick={() => navigate('/pricing')}
-              className="bg-yellow-500 text-white px-3 py-1 rounded-md text-xs font-medium hover:bg-yellow-600 transition-colors"
+              className={`text-white px-3 py-1 rounded-md text-xs font-medium transition-colors ${isNewUser ? 'bg-green-500 hover:bg-green-600' : 'bg-yellow-500 hover:bg-yellow-600'}`}
             >
-              升级VIP
+              {isNewUser ? '了解VIP' : '升级VIP'}
             </button>
           </div>
         </div>
