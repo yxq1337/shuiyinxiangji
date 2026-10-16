@@ -72,8 +72,17 @@ function ListingCard({ listing }: { listing: CommunityListing }) {
         </div>
       </div>
 
-      {/* 第二行：标题 */}
-      <h3 className="text-base font-semibold text-[#172033] line-clamp-1 mb-1.5">{listing.title}</h3>
+      {/* 第二行：标题 + 缩略图 */}
+      <div className="flex gap-3 mb-1.5">
+        <h3 className="text-base font-semibold text-[#172033] line-clamp-2 flex-1">{listing.title}</h3>
+        {listing.images && listing.images.length > 0 && (
+          <img
+            src={listing.images[0]}
+            alt=""
+            className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+          />
+        )}
+      </div>
 
       {/* 第三行：关键信息标签 */}
       {tags.length > 0 && (

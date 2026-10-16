@@ -56,6 +56,7 @@ export interface CommunityListing {
   price: number;
   contact: string;            // 脱敏后的联系方式（列表/详情默认显示脱敏）
   extra: ListingExtra;
+  images: string[];           // 图片 base64 数组
   userId: string;
   userPhone: string;
   status: ListingStatus;
@@ -78,6 +79,7 @@ export interface CreateListingPayload {
   price: number;
   contact: string;
   extra: ListingExtra;
+  images?: string[];
   userId?: string;
   userPhone?: string;
 }
@@ -190,6 +192,37 @@ export function maskPhone(phone: string): string {
   const s = String(phone);
   if (s.length <= 7) return s.replace(/./g, '*');
   return s.slice(0, 3) + '****' + s.slice(-4);
+}
+
+// 压缩图片为 base64（最大边 800px，JPEG 质量 0.7）
+export function compressImage(file: File, maxSize = 800, quality = 0.7): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxSize) {
+          height = (height * maxSize) / width;
+          width = maxSize;
+        } else if (height > maxSize) {
+          width = (width * maxSize) / height;
+          height = maxSize;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(''); return; }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 // 格式化价格

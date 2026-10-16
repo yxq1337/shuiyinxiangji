@@ -182,6 +182,22 @@ export default function ListingDetail() {
           </div>
         </div>
 
+        {/* 图片区 */}
+        {listing.images && listing.images.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm mt-3">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {listing.images.map((src, idx) => (
+                <img
+                  key={idx}
+                  src={src}
+                  alt=""
+                  className="flex-shrink-0 w-40 h-40 object-cover rounded-lg"
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 详细信息 */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm mt-3">
           <h2 className="text-sm font-semibold text-gray-800 mb-2">详细描述</h2>

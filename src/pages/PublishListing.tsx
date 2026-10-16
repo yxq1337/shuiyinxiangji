@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Battery, Briefcase, Bike, HelpCircle, AlertTriangle, CheckCircle, Shield } from 'lucide-react';
+import { ArrowLeft, Battery, Briefcase, Bike, HelpCircle, AlertTriangle, CheckCircle, Shield, ImagePlus, Camera, X } from 'lucide-react';
 import {
   createListing,
   CATEGORIES,
   PROHIBITED_LIST,
+  compressImage,
   type CommunityCategory,
   type ListingExtra,
 } from '../lib/community';
@@ -37,6 +38,10 @@ export default function PublishListing() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const albumInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingImg, setUploadingImg] = useState(false);
 
   // 分类专属字段
   const [extra, setExtra] = useState<ListingExtra>({});
@@ -44,6 +49,27 @@ export default function PublishListing() {
   const updateExtra = (key: string, value: any) => setExtra((prev) => ({ ...prev, [key]: value }));
 
   const pricePlaceholder = category === 'battery' ? '月租金额（元/月）' : category === 'job' ? '单价（元/单），没有填0' : '转让价格（元）';
+
+  const MAX_IMAGES = 6;
+
+  async function handleImageFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploadingImg(true);
+    try {
+      const slots = MAX_IMAGES - images.length;
+      const selected = Array.from(files).slice(0, slots);
+      const compressed = await Promise.all(selected.map((f) => compressImage(f)));
+      setImages((prev) => [...prev, ...compressed.filter(Boolean)]);
+    } catch (e) {
+      setErrorMsg('图片处理失败，请重试');
+    } finally {
+      setUploadingImg(false);
+    }
+  }
+
+  function removeImage(idx: number) {
+    setImages((prev) => prev.filter((_, i) => i !== idx));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,6 +89,7 @@ export default function PublishListing() {
         price: Number(price) || 0,
         contact: contact.trim(),
         extra,
+        images,
         userId: user?.id,
         userPhone: user?.phone,
       };
@@ -151,6 +178,62 @@ export default function PublishListing() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="补充说明，如使用时长、新旧程度、交易方式等"
                 maxLength={500}
+              />
+            </div>
+
+            {/* 图片上传 */}
+            <div>
+              <label className={labelCls}>图片（最多 {MAX_IMAGES} 张，选填）</label>
+              <div className="grid grid-cols-4 gap-2">
+                {images.map((src, idx) => (
+                  <div key={idx} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 group">
+                    <img src={src} alt="" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      className="absolute top-1 right-1 w-5 h-5 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                {images.length < MAX_IMAGES && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => albumInputRef.current?.click()}
+                      className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
+                    >
+                      <ImagePlus className="w-6 h-6" />
+                      <span className="text-[10px] mt-1">相册</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
+                    >
+                      <Camera className="w-6 h-6" />
+                      <span className="text-[10px] mt-1">拍照</span>
+                    </button>
+                  </>
+                )}
+              </div>
+              {uploadingImg && <p className="text-xs text-gray-400 mt-1">图片处理中...</p>}
+              <input
+                ref={albumInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => { handleImageFiles(e.target.files); e.target.value = ''; }}
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => { handleImageFiles(e.target.files); e.target.value = ''; }}
               />
             </div>
 

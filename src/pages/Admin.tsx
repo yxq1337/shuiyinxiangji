@@ -523,6 +523,13 @@ export default function Admin() {
                         </div>
                         <h4 className="font-semibold text-gray-900">{l.title}</h4>
                         <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{l.description}</p>
+                        {l.images && l.images.length > 0 && (
+                          <div className="flex gap-2 mt-2 flex-wrap">
+                            {l.images.map((src, i) => (
+                              <img key={i} src={src} alt="" className="w-20 h-20 rounded-lg object-cover" />
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="text-right flex-shrink-0">
                         <div className="text-lg font-bold text-red-500">
