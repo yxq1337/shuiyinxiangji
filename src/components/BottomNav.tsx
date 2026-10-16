@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Camera, Grid3X3, Users, User } from 'lucide-react';
+import { Home, Grid3X3, Users, User } from 'lucide-react';
 
 /**
- * 底部五标签导航：首页 / 拍照 / 工具 / 社区 / 我的
+ * 底部四标签导航：首页 / 工具 / 社区 / 我的
  * 移动端固定底部展示，桌面端隐藏（顶部导航已覆盖）
  */
 export default function BottomNav() {
@@ -11,8 +11,7 @@ export default function BottomNav() {
 
   const tabs = [
     { key: 'home', label: '首页', to: '/', icon: Home, match: (p: string) => p === '/' },
-    { key: 'camera', label: '拍照', to: '/camera', icon: Camera, match: (p: string) => p === '/camera' },
-    { key: 'tools', label: '工具', to: '/tools', icon: Grid3X3, match: (p: string) => p.startsWith('/tool') },
+    { key: 'tools', label: '工具', to: '/tools', icon: Grid3X3, match: (p: string) => p.startsWith('/tool') || p === '/camera' },
     { key: 'community', label: '社区', to: '/community', icon: Users, match: (p: string) => p.startsWith('/community') },
     { key: 'my', label: '我的', to: '/my', icon: User, match: (p: string) => p === '/my' || p.startsWith('/my') },
   ];
