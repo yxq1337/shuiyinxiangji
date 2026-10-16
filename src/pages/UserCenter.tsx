@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Crown, History, Settings, ArrowRight, Calendar, CheckCircle, MessageCircle } from 'lucide-react';
+import { User, Crown, History, Settings, ArrowRight, Calendar, CheckCircle, MessageCircle, Shield } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function UserCenter() {
@@ -50,6 +50,16 @@ export default function UserCenter() {
       to: '/customer-service',
     },
   ];
+
+  // 管理员可见：后台管理入口
+  if (user.isAdmin) {
+    menuItems.push({
+      icon: Shield,
+      title: '后台管理',
+      description: '管理用户、订单、社区审核',
+      to: '/admin',
+    });
+  }
 
   return (
     <div className="flex-1 bg-transparent py-8 px-4">
