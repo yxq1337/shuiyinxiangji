@@ -241,6 +241,10 @@ exports.main = async (event, context) => {
     // 确保设置存在（健康检查之后）
     await ensureSettings();
 
+    // 确保社区集合存在（首次访问自动创建）
+    try { await db.createCollection('community_listings'); } catch (e) {}
+    try { await db.createCollection('community_reports'); } catch (e) {}
+
     // ==================== 认证 API ====================
 
     // 支持 GET 和 POST 两种方式

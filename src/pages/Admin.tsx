@@ -265,7 +265,7 @@ export default function Admin() {
     { id: 'dashboard', label: '仪表盘', icon: TrendingUp, badge: undefined },
     { id: 'review', label: '支付审核', icon: Check, badge: pendingCount },
     { id: 'community', label: '社区审核', icon: MessageSquare, badge: pendingListings.length },
-    { id: 'users', label: '用户管理', icon: Users },
+    { id: 'users', label: '会员管理', icon: Users },
     { id: 'payments', label: '支付记录', icon: CreditCard },
     { id: 'settings', label: '系统设置', icon: Settings },
   ];
@@ -280,12 +280,12 @@ export default function Admin() {
           </div>
         </div>
 
-        <div className="flex space-x-1 bg-white rounded-xl p-1 border border-gray-200 mb-6">
+        <div className="flex space-x-1 bg-white rounded-xl p-1 border border-gray-200 mb-6 overflow-x-auto flex-nowrap">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors relative ${
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors relative whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'bg-blue-50 text-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
