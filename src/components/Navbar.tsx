@@ -10,7 +10,7 @@ export default function Navbar() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <nav className="bg-transparent sticky top-0 z-50 backdrop-blur-sm">
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex justify-between h-16">
           <div className="flex items-center space-x-8">
@@ -18,11 +18,11 @@ export default function Navbar() {
               <img src="/yaobox-icon.svg" alt="YaoBox" className="w-9 h-9 shrink-0" />
               <span className="font-bold text-xl tracking-tight text-gray-900">YaoBox</span>
             </Link>
-            <div className="hidden md:flex items-center space-x-6">
+            <div className="hidden md:flex items-center space-x-1">
               <Link
                 to="/"
-                className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  isActive('/') ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                className={`text-sm font-medium transition-all flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+                  isActive('/') ? 'bg-white/60 text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
                 }`}
               >
                 <Home className="w-4 h-4" />
@@ -30,8 +30,8 @@ export default function Navbar() {
               </Link>
               <Link
                 to="/camera"
-                className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  isActive('/camera') ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                className={`text-sm font-medium transition-all flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+                  isActive('/camera') ? 'bg-white/60 text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
                 }`}
               >
                 <Camera className="w-4 h-4" />
@@ -39,8 +39,8 @@ export default function Navbar() {
               </Link>
               <Link
                 to="/tools"
-                className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  location.pathname.startsWith('/tool') || isActive('/tools') ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                className={`text-sm font-medium transition-all flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+                  location.pathname.startsWith('/tool') || isActive('/tools') ? 'bg-white/60 text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
                 }`}
               >
                 <Grid3X3 className="w-4 h-4" />
@@ -49,8 +49,8 @@ export default function Navbar() {
               {user && (
                 <Link
                   to="/my"
-                  className={`text-sm font-medium transition-colors ${
-                    isActive('/my') ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                  className={`text-sm font-medium transition-all px-3 py-1.5 rounded-full ${
+                    isActive('/my') ? 'bg-white/60 text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
                   }`}
                 >
                   个人中心
@@ -59,8 +59,8 @@ export default function Navbar() {
               {user?.isAdmin && (
                 <Link
                   to="/admin"
-                  className={`text-sm font-medium transition-colors ${
-                    isActive('/admin') ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                  className={`text-sm font-medium transition-all px-3 py-1.5 rounded-full ${
+                    isActive('/admin') ? 'bg-white/60 text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
                   }`}
                 >
                   管理后台
@@ -79,7 +79,7 @@ export default function Navbar() {
             {user ? (
               <div className="flex items-center space-x-3">
                 {user.isVip && (
-                  <div className="flex items-center space-x-1 text-yellow-600 bg-yellow-50 px-2.5 py-1 rounded-full text-xs">
+                  <div className="flex items-center space-x-1 text-yellow-600 bg-yellow-50/80 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs">
                     <Crown className="w-3.5 h-3.5" />
                     <span className="font-medium">VIP</span>
                   </div>
