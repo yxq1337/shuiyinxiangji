@@ -35,25 +35,10 @@ export default function Home() {
 
   return (
     <div className="flex-1">
-      {/* 首屏 Hero：大面积留白 + 极简排版 */}
-      <Reveal>
-        <section className="max-w-2xl mx-auto px-6 pt-16 pb-14 md:pt-24 md:pb-20 text-center">
-          <p className="text-[10px] md:text-[11px] uppercase tracking-[0.28em] text-[#B0B0B0] mb-6">
-            YaoBox Studio
-          </p>
-          <h1 className="text-[30px] leading-tight md:text-5xl font-semibold tracking-lux text-ink">
-            极简数字工具箱
-          </h1>
-          <p className="mt-4 text-[13px] md:text-sm text-ink-3 max-w-md mx-auto leading-relaxed">
-            为骑手与创作者打磨的轻量工具 · 所有处理均在本地完成，隐私无忧
-          </p>
-        </section>
-      </Reveal>
-
       {/* 工具区 */}
-      <div className="max-w-3xl mx-auto px-5 pb-10">
+      <div className="max-w-3xl mx-auto px-5 pt-7 pb-10 md:pt-10">
         <Reveal delay={80}>
-          <h2 className="text-xs font-medium text-ink-3 mb-4 tracking-[0.14em] uppercase">工具</h2>
+          <h2 className="text-[15px] font-medium text-ink mb-4 tracking-lux">极简数字工具箱</h2>
         </Reveal>
 
         <div className="grid grid-cols-2 gap-3.5">
