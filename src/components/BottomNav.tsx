@@ -26,20 +26,20 @@ export default function BottomNav() {
             <Link
               key={tab.key}
               to={tab.to}
-              className={`relative flex flex-col items-center justify-center flex-1 h-full transition-colors duration-200 ${
+              className={`relative flex flex-col items-center justify-center flex-1 h-full transition-colors duration-300 ${
                 active ? 'text-ink' : 'text-ink-3'
               }`}
             >
-              <tab.icon className="w-5 h-5" strokeWidth={active ? 2 : 1.75} />
-              <span className={`text-[10px] mt-0.5 ${active ? 'font-semibold' : 'font-medium'}`}>
+              <span
+                className={`flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                  active ? 'scale-105' : 'scale-100'
+                }`}
+              >
+                <tab.icon className="w-5 h-5" strokeWidth={active ? 1.9 : 1.6} />
+              </span>
+              <span className={`text-[10px] mt-0.5 transition-all duration-300 ${active ? 'font-semibold' : 'font-medium'}`}>
                 {tab.label}
               </span>
-              <span
-                className={`absolute bottom-1.5 w-1 h-1 rounded-full bg-ink transition-opacity duration-200 ${
-                  active ? 'opacity-100' : 'opacity-0'
-                }`}
-                aria-hidden
-              />
             </Link>
           );
         })}

@@ -11,17 +11,17 @@ interface RevealProps {
 }
 
 /**
- * 元素进入视口时优雅渐显：opacity 0→1 + translateY(20px)→0
- * ease-out 缓动，时长 500ms，只播放一次。
+ * 元素进入视口时优雅渐显：opacity 0→1 + translateY(24px)→0
+ * easeOutExpo 缓动 cubic-bezier(0.16, 1, 0.3, 1)，时长 600ms，只播放一次。
  */
 export default function Reveal({ children, delay = 0, className }: RevealProps) {
   return (
     <motion.div
       className={className}
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '0px 0px -40px 0px' }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: delay / 1000 }}
+      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: delay / 1000 }}
     >
       {children}
     </motion.div>

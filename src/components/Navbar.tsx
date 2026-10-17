@@ -74,9 +74,9 @@ export default function Navbar() {
             {user ? (
               <div className="flex items-center space-x-2">
                 {user.isVip && (
-                  <div className="flex items-center space-x-1 text-gold bg-gold-soft px-2.5 py-1 rounded-full text-xs border border-gold-line">
-                    <Crown className="w-3.5 h-3.5" strokeWidth={1.75} />
-                    <span className="font-medium">VIP</span>
+                  <div className="flex items-center space-x-1 text-gold bg-gradient-to-b from-gold-soft to-white px-2.5 py-1 rounded-full text-xs border border-gold-line/70">
+                    <Crown className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    <span className="font-medium tracking-wide">VIP</span>
                   </div>
                 )}
                 <Link

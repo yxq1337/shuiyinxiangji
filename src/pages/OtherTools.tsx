@@ -9,15 +9,13 @@ export default function OtherTools() {
     {
       name: '水印相机',
       desc: '自定义时间地点天气水印',
-      icon: <Camera className="w-5 h-5" strokeWidth={1.75} />,
-      tile: 'bg-slate-soft text-slate-ink',
+      icon: <Camera className="w-[18px] h-[18px]" strokeWidth={1.5} />,
       path: '/camera',
     },
     {
       name: 'AI 语音合成',
       desc: '文字转语音，支持声音克隆',
-      icon: <Volume2 className="w-5 h-5" strokeWidth={1.75} />,
-      tile: 'bg-plum-soft text-plum-ink',
+      icon: <Volume2 className="w-[18px] h-[18px]" strokeWidth={1.5} />,
       path: '/tool/tts',
       isNew: true,
     },
@@ -51,17 +49,20 @@ export default function OtherTools() {
               <button
                 key={tool.name}
                 onClick={() => navigate(tool.path)}
-                className="card card-press relative flex flex-col items-start gap-3 p-5 text-left"
+                className="card card-press relative flex flex-col items-start gap-3.5 p-5 text-left"
               >
                 {tool.isNew && (
-                  <span className="tag-soft absolute top-3 right-3">NEW</span>
+                  <span className="absolute top-4 right-4 flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-gold" />
+                    <span className="text-[9px] font-bold tracking-[0.12em] text-gold">NEW</span>
+                  </span>
                 )}
-                <div className={`w-11 h-11 rounded-xl ${tool.tile} flex items-center justify-center`}>
+                <div className="w-11 h-11 rounded-xl bg-[#F5F5F5] border border-[#EEEEEE] text-ink-2 flex items-center justify-center">
                   {tool.icon}
                 </div>
                 <div className="min-w-0">
                   <span className="block text-[15px] font-medium text-ink">{tool.name}</span>
-                  <span className="block text-xs text-ink-3 mt-1 leading-relaxed">{tool.desc}</span>
+                  <span className="block text-xs text-ink-3 mt-1.5 leading-relaxed">{tool.desc}</span>
                 </div>
               </button>
             ))}
