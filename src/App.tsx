@@ -24,7 +24,7 @@ export default function App() {
       <BrowserRouter>
         <div className="min-h-screen bg-transparent flex flex-col">
           <Navbar />
-          <main className="flex-1 flex flex-col">
+          <main className="flex-1 flex flex-col pt-14 md:pt-0">
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/camera" element={<WatermarkApp />} />

@@ -17,7 +17,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 pb-[env(safe-area-inset-bottom)]">
+    <nav className="md:hidden fixed top-16 left-0 right-0 z-40 bg-white border-b border-gray-100">
       <div className="flex justify-around items-center h-14 max-w-lg mx-auto">
         {tabs.map((tab) => {
           const active = tab.match(location.pathname);
