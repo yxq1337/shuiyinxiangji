@@ -36,9 +36,21 @@ export default function Home() {
   return (
     <div className="flex-1">
       {/* 工具区 */}
-      <div className="max-w-3xl mx-auto px-5 pt-7 pb-10 md:pt-10">
+      <div className="max-w-3xl mx-auto px-5 pt-6 pb-10 md:pt-9">
+        {/* 海报式首屏：渐变动态标题 */}
+        <Reveal>
+          <section className="poster-hero mb-7 px-6 py-10 text-center md:px-10 md:py-14">
+            <p className="poster-kicker">YaoBox Studio</p>
+            <h1 className="poster-title mt-5">极简数字工具箱</h1>
+            <div className="poster-rule" />
+            <p className="poster-sub mx-auto max-w-md">
+              为骑手与创作者打磨的轻量工具 · 所有处理均在本地完成，隐私无忧
+            </p>
+          </section>
+        </Reveal>
+
         <Reveal delay={80}>
-          <h2 className="text-[15px] font-medium text-ink mb-4 tracking-lux">极简数字工具箱</h2>
+          <h2 className="text-xs font-medium text-ink-3 mb-4 tracking-[0.14em] uppercase">工具</h2>
         </Reveal>
 
         <div className="grid grid-cols-2 gap-3.5">
