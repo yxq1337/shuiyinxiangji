@@ -12,7 +12,7 @@ export default function BottomNav() {
   const tabs = [
     { key: 'home', label: '首页', to: '/', icon: Home, match: (p: string) => p === '/' },
     { key: 'tools', label: '工具', to: '/tools', icon: Grid3X3, match: (p: string) => p.startsWith('/tool') || p === '/camera' },
-    { key: 'community', label: '社区', to: '/community', icon: Users, match: (p: string) => p.startsWith('/community') },
+    { key: 'community', label: '嘉兴骑手', to: '/community', icon: Users, match: (p: string) => p.startsWith('/community') },
     { key: 'my', label: '我的', to: '/my', icon: User, match: (p: string) => p === '/my' || p.startsWith('/my') },
   ];
 

@@ -161,7 +161,7 @@ export default function Community() {
       <div className="max-w-6xl mx-auto px-4 pt-4">
         {/* 顶部标题 */}
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-bold text-[#172033]">骑手社区</h1>
+          <h1 className="text-xl font-bold text-[#172033]">嘉兴骑手社区</h1>
         </div>
 
         {/* 五宫格分类入口 */}

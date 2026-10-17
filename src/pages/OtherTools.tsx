@@ -1,8 +1,30 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Wrench, ArrowLeft, Sparkles } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Wrench, ArrowLeft, Sparkles, Camera, Volume2 } from 'lucide-react';
 
 export default function OtherTools() {
+  const navigate = useNavigate();
+
+  const availableTools = [
+    {
+      name: '水印相机',
+      desc: '自定义时间地点天气水印',
+      icon: <Camera className="w-6 h-6" />,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      path: '/camera',
+    },
+    {
+      name: 'AI 语音合成',
+      desc: '文字转语音，支持声音克隆',
+      icon: <Volume2 className="w-6 h-6" />,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      path: '/tool/tts',
+      isNew: true,
+    },
+  ];
+
   const comingSoonTools = [
     { name: '图片压缩', desc: '无损压缩，减小体积' },
     { name: '证件照换底', desc: '一键更换背景色' },
@@ -20,14 +42,40 @@ export default function OtherTools() {
           返回首页
         </Link>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Wrench className="w-8 h-8 text-gray-400" />
+        {/* 可用工具 */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-4">
+          <h1 className="text-lg font-bold text-gray-900 mb-4">全部工具</h1>
+          <div className="grid grid-cols-2 gap-3">
+            {availableTools.map((tool) => (
+              <button
+                key={tool.name}
+                onClick={() => navigate(tool.path)}
+                className="relative flex items-start gap-3 p-3.5 rounded-xl border border-gray-100 bg-white hover:border-blue-200 hover:shadow-md transition-all duration-200 active:scale-[0.97] text-left"
+              >
+                {tool.isNew && (
+                  <span className="absolute top-1.5 right-1.5 px-1 py-px bg-red-500 text-white text-[8px] font-semibold rounded">
+                    NEW
+                  </span>
+                )}
+                <div className={`w-11 h-11 rounded-xl ${tool.bgColor} ${tool.color} flex items-center justify-center flex-shrink-0`}>
+                  {tool.icon}
+                </div>
+                <div className="min-w-0">
+                  <span className="block text-sm font-semibold text-gray-900">{tool.name}</span>
+                  <span className="block text-xs text-gray-500 mt-0.5 leading-snug">{tool.desc}</span>
+                </div>
+              </button>
+            ))}
           </div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">更多工具开发中</h1>
-          <p className="text-gray-500 text-sm mb-6">以下工具正在紧锣密鼓地开发中，敬请期待</p>
+        </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-lg mx-auto">
+        {/* 敬请期待 */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Wrench className="w-5 h-5 text-gray-400" />
+            <h2 className="text-sm font-semibold text-gray-700">更多工具开发中</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {comingSoonTools.map((tool) => (
               <div
                 key={tool.name}
