@@ -9,17 +9,15 @@ export default function OtherTools() {
     {
       name: '水印相机',
       desc: '自定义时间地点天气水印',
-      icon: <Camera className="w-6 h-6" />,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
+      icon: <Camera className="w-5 h-5" strokeWidth={1.75} />,
+      tile: 'bg-slate-soft text-slate-ink',
       path: '/camera',
     },
     {
       name: 'AI 语音合成',
       desc: '文字转语音，支持声音克隆',
-      icon: <Volume2 className="w-6 h-6" />,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
+      icon: <Volume2 className="w-5 h-5" strokeWidth={1.75} />,
+      tile: 'bg-plum-soft text-plum-ink',
       path: '/tool/tts',
       isNew: true,
     },
@@ -35,34 +33,35 @@ export default function OtherTools() {
   ];
 
   return (
-    <div className="flex-1 bg-transparent">
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-6">
-          <ArrowLeft className="w-4 h-4" />
+    <div className="flex-1">
+      <div className="max-w-5xl mx-auto px-5 py-8">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-sm text-ink-3 hover:text-ink mb-6 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
           返回首页
         </Link>
 
         {/* 可用工具 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-4">
-          <h1 className="text-lg font-bold text-gray-900 mb-4">全部工具</h1>
-          <div className="grid grid-cols-2 gap-3">
+        <div className="card p-6 mb-5">
+          <h1 className="text-lg font-semibold text-ink mb-5 tracking-lux">全部工具</h1>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5">
             {availableTools.map((tool) => (
               <button
                 key={tool.name}
                 onClick={() => navigate(tool.path)}
-                className="relative flex items-start gap-3 p-3.5 rounded-xl border border-gray-100 bg-white hover:border-blue-200 hover:shadow-md transition-all duration-200 active:scale-[0.97] text-left"
+                className="card card-press relative flex flex-col items-start gap-3 p-5 text-left"
               >
                 {tool.isNew && (
-                  <span className="absolute top-1.5 right-1.5 px-1 py-px bg-red-500 text-white text-[8px] font-semibold rounded">
-                    NEW
-                  </span>
+                  <span className="tag-soft absolute top-3 right-3">NEW</span>
                 )}
-                <div className={`w-11 h-11 rounded-xl ${tool.bgColor} ${tool.color} flex items-center justify-center flex-shrink-0`}>
+                <div className={`w-11 h-11 rounded-xl ${tool.tile} flex items-center justify-center`}>
                   {tool.icon}
                 </div>
                 <div className="min-w-0">
-                  <span className="block text-sm font-semibold text-gray-900">{tool.name}</span>
-                  <span className="block text-xs text-gray-500 mt-0.5 leading-snug">{tool.desc}</span>
+                  <span className="block text-[15px] font-medium text-ink">{tool.name}</span>
+                  <span className="block text-xs text-ink-3 mt-1 leading-relaxed">{tool.desc}</span>
                 </div>
               </button>
             ))}
@@ -70,22 +69,19 @@ export default function OtherTools() {
         </div>
 
         {/* 敬请期待 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Wrench className="w-5 h-5 text-gray-400" />
-            <h2 className="text-sm font-semibold text-gray-700">更多工具开发中</h2>
+        <div className="card p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <Wrench className="w-4 h-4 text-ink-3" strokeWidth={1.75} />
+            <h2 className="text-sm font-medium text-ink tracking-lux">更多工具开发中</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5">
             {comingSoonTools.map((tool) => (
-              <div
-                key={tool.name}
-                className="p-3 bg-transparent rounded-xl border border-gray-100"
-              >
+              <div key={tool.name} className="p-4 rounded-xl border border-line">
                 <div className="flex items-center gap-2 mb-1">
-                  <Sparkles className="w-4 h-4 text-gray-300" />
-                  <span className="text-sm font-medium text-gray-700">{tool.name}</span>
+                  <Sparkles className="w-3.5 h-3.5 text-ink-4" strokeWidth={1.75} />
+                  <span className="text-sm font-medium text-ink-2">{tool.name}</span>
                 </div>
-                <p className="text-xs text-gray-400">{tool.desc}</p>
+                <p className="text-xs text-ink-4">{tool.desc}</p>
               </div>
             ))}
           </div>

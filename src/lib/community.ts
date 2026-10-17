@@ -112,10 +112,10 @@ export interface CategoryMeta {
 }
 
 export const CATEGORIES: CategoryMeta[] = [
-  { key: 'battery', label: '租电', desc: '电池租赁 / 换电', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
-  { key: 'job', label: '找工作', desc: '骑手招聘', color: 'text-orange-600', bgColor: 'bg-orange-50' },
-  { key: 'usedcar', label: '二手车', desc: '电动车转让', color: 'text-blue-600', bgColor: 'bg-blue-50' },
-  { key: 'help', label: '求助互助', desc: '骑手互帮', color: 'text-purple-600', bgColor: 'bg-purple-50' },
+  { key: 'battery', label: '租电', desc: '电池租赁 / 换电', color: 'text-eco', bgColor: 'bg-eco-soft' },
+  { key: 'job', label: '找工作', desc: '骑手招聘', color: 'text-amber-ink', bgColor: 'bg-amber-soft' },
+  { key: 'usedcar', label: '二手车', desc: '电动车转让', color: 'text-slate-ink', bgColor: 'bg-slate-soft' },
+  { key: 'help', label: '求助互助', desc: '骑手互帮', color: 'text-plum-ink', bgColor: 'bg-plum-soft' },
 ];
 
 export function getCategoryMeta(key: CommunityCategory): CategoryMeta {
