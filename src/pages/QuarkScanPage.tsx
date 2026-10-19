@@ -93,6 +93,15 @@ function base64Size(dataUrl: string): number {
   return (raw.length * 3) / 4;
 }
 
+/** 按文件头判断图片真实格式，避免把 PNG 存成 .jpg */
+function sniffImage(base64: string): { mime: string; ext: string } {
+  if (base64.startsWith('/9j/')) return { mime: 'image/jpeg', ext: 'jpg' };
+  if (base64.startsWith('iVBOR')) return { mime: 'image/png', ext: 'png' };
+  if (base64.startsWith('R0lGOD')) return { mime: 'image/gif', ext: 'gif' };
+  if (base64.startsWith('UklGR')) return { mime: 'image/webp', ext: 'webp' };
+  return { mime: 'image/jpeg', ext: 'jpg' };
+}
+
 function downloadBase64(base64: string, filename: string, mime: string) {
   const bin = atob(base64);
   const bytes = new Uint8Array(bin.length);
@@ -167,6 +176,11 @@ export default function QuarkScanPage() {
   const imageBase64 = result?.data?.ImageInfo?.[0]?.ImageBase64;
   const docBase64 = result?.data?.TypesetInfo?.[0]?.FileBase64;
   const docType = DOCUMENT_TYPES[scene];
+  const ocrText = (result?.data?.OcrInfo || [])
+    .map((item: any) => item?.Text || '')
+    .join('\n')
+    .trim();
+  const imageKind = imageBase64 ? sniffImage(imageBase64) : null;
 
   return (
     <div className="flex-1">
@@ -291,15 +305,17 @@ export default function QuarkScanPage() {
           <div className="card p-6 mt-5">
             <h2 className="text-sm font-medium text-ink tracking-lux mb-4">处理结果</h2>
 
-            {imageBase64 && (
+            {imageBase64 && imageKind && (
               <div className="flex flex-col items-start gap-4">
                 <img
-                  src={`data:image/jpeg;base64,${imageBase64}`}
+                  src={`data:${imageKind.mime};base64,${imageBase64}`}
                   alt="处理结果"
                   className="w-full rounded-xl border border-line"
                 />
                 <button
-                  onClick={() => downloadBase64(imageBase64, `quark-${scene}.jpg`, 'image/jpeg')}
+                  onClick={() =>
+                    downloadBase64(imageBase64, `quark-${scene}.${imageKind.ext}`, imageKind.mime)
+                  }
                   className="inline-flex items-center gap-1.5 text-xs text-ink-3 hover:text-ink transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -320,7 +336,28 @@ export default function QuarkScanPage() {
               </button>
             )}
 
-            {!imageBase64 && !docBase64 && (
+            {ocrText && (
+              <div>
+                <button
+                  onClick={() => navigator.clipboard.writeText(ocrText)}
+                  className="inline-flex items-center gap-1.5 text-xs text-ink-3 hover:text-ink mb-3 transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5" strokeWidth={1.75} />
+                  复制文字
+                </button>
+                <pre className="text-xs text-ink-2 bg-[#FAFAFA] border border-line rounded-xl p-4 overflow-x-auto whitespace-pre-wrap break-all">
+                  {ocrText}
+                </pre>
+                <details className="mt-3">
+                  <summary className="text-xs text-ink-4 cursor-pointer">查看原始返回</summary>
+                  <pre className="mt-2 text-[11px] text-ink-4 bg-[#FAFAFA] border border-line rounded-xl p-4 overflow-x-auto whitespace-pre-wrap break-all">
+                    {JSON.stringify(result.data, null, 2)}
+                  </pre>
+                </details>
+              </div>
+            )}
+
+            {!imageBase64 && !docBase64 && !ocrText && (
               <div>
                 <button
                   onClick={() =>
