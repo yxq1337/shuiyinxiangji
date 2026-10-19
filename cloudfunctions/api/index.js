@@ -1,6 +1,7 @@
 'use strict';
 
 const cloud = require('@cloudbase/node-sdk');
+const https = require('https');
 
 // 初始化 CloudBase SDK
 const app = cloud.init({
@@ -128,7 +129,52 @@ async function getUserById(id) {
   return result.data[0];
 }
 
-// 主函数
+// ==================== 夸克扫描王（第三方 AI 文档处理） ====================
+const QUARK_API_HOST = 'scan-business.quark.cn';
+const QUARK_API_PATH = '/vision';
+// 调用方平台标识，仅作上报用，可用环境变量覆盖
+const QUARK_PLATFORM = process.env.QUARK_PLATFORM || 'community';
+
+/**
+ * 调用夸克扫描王开放接口
+ * 请求体：aiApiKey / dataType / scene / dataBase64 / inputConfigs?
+ * 响应体：{ code, message, data }，成功码为 "00000"
+ */
+function callQuarkVision(payload) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(payload);
+    const req = https.request(
+      {
+        hostname: QUARK_API_HOST,
+        path: QUARK_API_PATH,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data),
+          'X-Appbuilder-From': QUARK_PLATFORM
+        },
+        timeout: 120000
+      },
+      (res) => {
+        let raw = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => { raw += chunk; });
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(raw));
+          } catch (e) {
+            reject(new Error(`夸克接口返回非 JSON（HTTP ${res.statusCode}）`));
+          }
+        });
+      }
+    );
+    req.on('timeout', () => req.destroy(new Error('夸克接口请求超时')));
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
+
 exports.main = async (event, context) => {
   console.log('=== RAW EVENT ===', JSON.stringify(event, null, 2));
 
@@ -236,6 +282,62 @@ exports.main = async (event, context) => {
         headers,
         body: JSON.stringify({ status: 'ok' })
       };
+    }
+
+    // ==================== 夸克扫描王：OCR / 扫描增强 / 格式转换 ====================
+    if (httpMethod === 'POST' && path === '/quark-scan') {
+      const apiKey = process.env.SCAN_WEBSERVICE_KEY;
+      if (!apiKey) {
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({ code: 'NO_API_KEY', message: '服务端未配置夸克扫描王 API Key' })
+        };
+      }
+
+      const scene = body && body.scene;
+      const image = body && body.imageBase64;
+      if (!scene || !image) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ code: 'INVALID_INPUT', message: '缺少 scene 或 imageBase64' })
+        };
+      }
+
+      // 去掉 data URL 前缀，只留纯 base64
+      const base64Content = String(image).includes(';base64,')
+        ? String(image).split(';base64,')[1]
+        : String(image);
+
+      // 夸克接口单文件上限 5MB（base64 长度换算回字节）
+      if ((base64Content.length * 3) / 4 > 5 * 1024 * 1024) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ code: 'FILE_TOO_LARGE', message: '图片超过 5MB，请压缩后重试' })
+        };
+      }
+
+      const payload = {
+        aiApiKey: apiKey,
+        dataType: 'image',
+        scene: String(scene),
+        dataBase64: base64Content
+      };
+      if (body.inputConfigs) payload.inputConfigs = body.inputConfigs;
+
+      try {
+        const result = await callQuarkVision(payload);
+        return { statusCode: 200, headers, body: JSON.stringify(result) };
+      } catch (e) {
+        console.error('=== Quark scan failed ===', e);
+        return {
+          statusCode: 502,
+          headers,
+          body: JSON.stringify({ code: 'UPSTREAM_ERROR', message: e.message || '夸克接口调用失败' })
+        };
+      }
     }
 
     // 确保设置存在（健康检查之后）

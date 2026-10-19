@@ -32,9 +32,9 @@ export default function OtherTools() {
     },
     {
       name: '夸克扫描王',
-      desc: 'OCR 识别 · 文件扫描 · 转 Office · 证件照生成',
+      desc: 'OCR 识别 · 扫描增强 · 转 Word / PDF',
       icon: <ScanText className="w-[18px] h-[18px]" strokeWidth={1.5} />,
-      href: 'https://scan.quark.cn/business',
+      path: '/tool/quark-scan',
     },
   ];
 
