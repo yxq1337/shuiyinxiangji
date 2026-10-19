@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Upload, Loader2, Download, Copy, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Upload, Loader2, Download, Copy, AlertCircle, Pencil } from 'lucide-react';
 import { apiPostLarge } from '../lib/api';
 import { compressImage } from '../lib/imageCompress';
+import ContentEditor from '../components/ContentEditor';
 
 interface Scene {
   id: string;
@@ -125,6 +126,7 @@ export default function QuarkScanPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<any>(null);
+  const [editor, setEditor] = useState<{ background?: string; initialText?: string } | null>(null);
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = e.target.files?.[0];
@@ -305,7 +307,24 @@ export default function QuarkScanPage() {
         {/* 结果 */}
         {result && (
           <div className="card p-6 mt-5">
-            <h2 className="text-sm font-medium text-ink tracking-lux mb-4">处理结果</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-medium text-ink tracking-lux">处理结果</h2>
+              {(imageBase64 || ocrText) && (
+                <button
+                  onClick={() =>
+                    setEditor(
+                      imageBase64 && imageKind
+                        ? { background: `data:${imageKind.mime};base64,${imageBase64}` }
+                        : { initialText: ocrText }
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 text-xs text-ink-3 hover:text-ink transition-colors"
+                >
+                  <Pencil className="w-3.5 h-3.5" strokeWidth={1.75} />
+                  内容编辑
+                </button>
+              )}
+            </div>
 
             {imageBase64 && imageKind && (
               <div className="flex flex-col items-start gap-4">
@@ -378,6 +397,15 @@ export default function QuarkScanPage() {
           </div>
         )}
       </div>
+
+      {editor && (
+        <ContentEditor
+          scene={scene}
+          background={editor.background}
+          initialText={editor.initialText}
+          onClose={() => setEditor(null)}
+        />
+      )}
     </div>
   );
 }
