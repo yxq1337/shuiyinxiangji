@@ -8,7 +8,8 @@
 // 优先使用环境变量，其次使用腾讯云 CloudBase 云函数
 // 开发环境默认使用相对路径，由 Vite 代理转发到本地 Express (localhost:3000)
 const DEV_API_BASE = '';
-const PROD_API_BASE = 'https://shuiyinxiangji-d2gbpqs4wea28beb5-1415424323.ap-shanghai.app.tcloudbase.com';
+// CloudBase 云函数的 HTTP 访问路径为 /api，必须带上该前缀
+const PROD_API_BASE = 'https://shuiyinxiangji-d2gbpqs4wea28beb5-1415424323.ap-shanghai.app.tcloudbase.com/api';
 const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? ((import.meta as any).env?.DEV ? DEV_API_BASE : PROD_API_BASE);
 
 export function apiUrl(path: string): string {
