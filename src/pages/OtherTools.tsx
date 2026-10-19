@@ -1,11 +1,22 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Wrench, ArrowLeft, Sparkles, Camera, Volume2 } from 'lucide-react';
+import { Wrench, ArrowLeft, Sparkles, Camera, Volume2, ScanText, ArrowUpRight } from 'lucide-react';
+
+interface ToolEntry {
+  name: string;
+  desc: string;
+  icon: React.ReactNode;
+  /** 站内路由 */
+  path?: string;
+  /** 外部链接（新标签打开） */
+  href?: string;
+  isNew?: boolean;
+}
 
 export default function OtherTools() {
   const navigate = useNavigate();
 
-  const availableTools = [
+  const availableTools: ToolEntry[] = [
     {
       name: '水印相机',
       desc: '自定义时间地点天气水印',
@@ -18,6 +29,12 @@ export default function OtherTools() {
       icon: <Volume2 className="w-[18px] h-[18px]" strokeWidth={1.5} />,
       path: '/tool/tts',
       isNew: true,
+    },
+    {
+      name: '夸克扫描王',
+      desc: 'OCR 识别 · 文件扫描 · 转 Office · 证件照生成',
+      icon: <ScanText className="w-[18px] h-[18px]" strokeWidth={1.5} />,
+      href: 'https://scan.quark.cn/business/docs-v2/guide/access-the-openclaw-tutorial',
     },
   ];
 
@@ -45,27 +62,51 @@ export default function OtherTools() {
         <div className="card p-6 mb-5">
           <h1 className="text-lg font-semibold text-ink mb-5 tracking-lux">全部工具</h1>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5">
-            {availableTools.map((tool) => (
-              <button
-                key={tool.name}
-                onClick={() => navigate(tool.path)}
-                className="card card-press relative flex flex-col items-start gap-3.5 p-5 text-left"
-              >
-                {tool.isNew && (
-                  <span className="absolute top-4 right-4 flex items-center gap-1">
-                    <span className="w-1 h-1 rounded-full bg-gold" />
-                    <span className="text-[9px] font-bold tracking-[0.12em] text-gold">NEW</span>
-                  </span>
-                )}
-                <div className="w-11 h-11 rounded-xl bg-[#F5F5F5] border border-[#EEEEEE] text-ink-2 flex items-center justify-center">
-                  {tool.icon}
-                </div>
-                <div className="min-w-0">
-                  <span className="block text-[15px] font-medium text-ink">{tool.name}</span>
-                  <span className="block text-xs text-ink-3 mt-1.5 leading-relaxed">{tool.desc}</span>
-                </div>
-              </button>
-            ))}
+            {availableTools.map((tool) => {
+              const body = (
+                <>
+                  {tool.isNew && (
+                    <span className="absolute top-4 right-4 flex items-center gap-1">
+                      <span className="w-1 h-1 rounded-full bg-gold" />
+                      <span className="text-[9px] font-bold tracking-[0.12em] text-gold">NEW</span>
+                    </span>
+                  )}
+                  {tool.href && (
+                    <ArrowUpRight
+                      className="absolute top-4 right-4 w-3.5 h-3.5 text-ink-4"
+                      strokeWidth={1.75}
+                    />
+                  )}
+                  <div className="w-11 h-11 rounded-xl bg-[#F5F5F5] border border-[#EEEEEE] text-ink-2 flex items-center justify-center">
+                    {tool.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-[15px] font-medium text-ink">{tool.name}</span>
+                    <span className="block text-xs text-ink-3 mt-1.5 leading-relaxed">{tool.desc}</span>
+                  </div>
+                </>
+              );
+
+              return tool.href ? (
+                <a
+                  key={tool.name}
+                  href={tool.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="card card-press relative flex flex-col items-start gap-3.5 p-5 text-left"
+                >
+                  {body}
+                </a>
+              ) : (
+                <button
+                  key={tool.name}
+                  onClick={() => tool.path && navigate(tool.path)}
+                  className="card card-press relative flex flex-col items-start gap-3.5 p-5 text-left"
+                >
+                  {body}
+                </button>
+              );
+            })}
           </div>
         </div>
 
