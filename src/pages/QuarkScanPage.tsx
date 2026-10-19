@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Upload, Loader2, Download, Copy, AlertCircle } from 'lucide-react';
-import { apiPost } from '../lib/api';
+import { apiPostLarge } from '../lib/api';
 import { compressImage } from '../lib/imageCompress';
 
 interface Scene {
@@ -85,7 +85,9 @@ const DOCUMENT_TYPES: Record<string, { ext: string; mime: string }> = {
   'image-to-pdf': { ext: 'pdf', mime: 'application/pdf' },
 };
 
-const MAX_BYTES = 5 * 1024 * 1024;
+// 图片体积上限：夸克接口限 5MB，但 base64 后体积 ×4/3，
+// 而 CloudBase 网关对非文本请求体限 6MB，故取 4MB 留出余量
+const MAX_BYTES = 4 * 1024 * 1024;
 
 function base64Size(dataUrl: string): number {
   const comma = dataUrl.indexOf(',');
@@ -160,7 +162,7 @@ export default function QuarkScanPage() {
         });
       }
 
-      const res = await apiPost('/quark-scan', body);
+      const res = await apiPostLarge('/quark-scan', body);
       if (!res || res.code !== '00000') {
         setError(res?.message || `处理失败（${res?.code || '未知错误'}）`);
         return;

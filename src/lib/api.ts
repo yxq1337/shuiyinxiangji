@@ -72,3 +72,24 @@ export async function apiPost<T = any>(path: string, body?: any): Promise<T> {
     throw new Error(`Invalid JSON response: ${text.substring(0, 50)}`);
   }
 }
+
+/**
+ * 大体积请求（图片 base64 等）
+ * CloudBase 网关对「文本类型」请求体限制 100KB，非文本类型才有 6MB 额度，
+ * 因此这里必须用 application/octet-stream，否则会被网关以 413 拦下。
+ */
+export async function apiPostLarge<T = any>(path: string, body: any): Promise<T> {
+  const res = await fetch(apiUrl(path), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body: JSON.stringify(body),
+  });
+
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error('JSON parse error:', e);
+    throw new Error(`Invalid JSON response: ${text.substring(0, 50)}`);
+  }
+}
