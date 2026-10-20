@@ -418,7 +418,7 @@ export default function ContentEditor({ scene, background, initialText, onClose 
       const url = canvas.toDataURL(mime, 0.92);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `quark-${scene}-edited.${mime === 'image/png' ? 'png' : 'jpg'}`;
+      a.download = `${scene}-edited.${mime === 'image/png' ? 'png' : 'jpg'}`;
       a.click();
       setExported(true);
       setToast('已导出');
