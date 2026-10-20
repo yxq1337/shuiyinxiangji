@@ -58,7 +58,18 @@ interface ImageItem extends BaseItem {
   h: number;
 }
 
-type Item = TextItem | ImageItem;
+interface RectItem extends BaseItem {
+  kind: 'rect';
+  w: number;
+  h: number;
+  color: string;
+  opacity: number; // 0~1
+  borderRadius: number; // px（纸面坐标系）
+  borderWidth: number; // 0 = 无边框
+  borderColor: string;
+}
+
+type Item = TextItem | ImageItem | RectItem;
 
 interface Props {
   scene: string;
@@ -67,11 +78,15 @@ interface Props {
   onClose: () => void;
 }
 
+/** 字体 fallback 链参考 express-edit-pwa，覆盖各平台中文字形 */
+const FONT_FALLBACK =
+  '"PingFang SC","Hiragino Sans GB","Noto Sans CJK SC","Source Han Sans CN","Microsoft YaHei","Heiti SC","SimHei","Songti SC","SimSun","Kaiti SC","KaiTi",sans-serif';
+
 const FONTS = [
-  { label: '默认', value: 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif' },
-  { label: '黑体', value: '"Heiti SC", "Microsoft YaHei", sans-serif' },
-  { label: '宋体', value: '"Songti SC", SimSun, serif' },
-  { label: '楷体', value: '"Kaiti SC", KaiTi, serif' },
+  { label: '默认', value: `system-ui, -apple-system, ${FONT_FALLBACK}` },
+  { label: '黑体', value: `"Heiti SC","SimHei","Microsoft YaHei","Noto Sans CJK SC",sans-serif` },
+  { label: '宋体', value: `"Songti SC","SimSun","Noto Serif CJK SC",serif` },
+  { label: '楷体', value: `"Kaiti SC","KaiTi","STKaiti",serif` },
 ];
 
 const COLORS = [
@@ -107,6 +122,25 @@ function makeText(text: string, pageW: number, x: number, y: number): TextItem {
     align: 'left',
     fontFamily: FONTS[0].value,
     indent: 0,
+    z: 1,
+  };
+}
+
+function makeRect(page: { w: number; h: number }, x?: number, y?: number): RectItem {
+  const w = page.w * 0.35;
+  const h = page.h * 0.18;
+  return {
+    id: uid(),
+    kind: 'rect',
+    x: x ?? (page.w - w) / 2,
+    y: y ?? (page.h - h) / 2,
+    w,
+    h,
+    color: '#FFE082',
+    opacity: 0.45,
+    borderRadius: 6,
+    borderWidth: 0,
+    borderColor: '#F57F17',
     z: 1,
   };
 }
@@ -171,6 +205,112 @@ function TextBox({
   );
 }
 
+/** 画框面板：颜色 / 透明度 / 圆角 / 边框 */
+function RectPanel({
+  item,
+  update,
+}: {
+  item: RectItem;
+  update: (id: string, patch: Partial<RectItem> & Partial<TextItem> & Partial<ImageItem>) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      {/* 填充颜色 */}
+      <div className="flex items-center gap-1.5 overflow-x-auto">
+        <Palette className="w-3.5 h-3.5 text-ink-3 shrink-0" strokeWidth={1.75} />
+        {COLORS.map((c) => (
+          <button
+            key={c}
+            onClick={() => update(item.id, { color: c })}
+            className={`w-6 h-6 rounded-full border shrink-0 ${
+              item.color === c ? 'ring-2 ring-[#2E86C1] ring-offset-1' : ''
+            }`}
+            style={{ background: c, borderColor: '#E5E5E5' }}
+            aria-label={`颜色 ${c}`}
+          />
+        ))}
+      </div>
+
+      {/* 透明度 */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-ink-3 shrink-0 w-12">透明度</span>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round(item.opacity * 100)}
+          onChange={(e) => update(item.id, { opacity: Number(e.target.value) / 100 })}
+          className="flex-1"
+          aria-label="透明度"
+        />
+        <span className="text-xs text-ink-3 shrink-0 w-8 text-right">{Math.round(item.opacity * 100)}%</span>
+      </div>
+
+      {/* 圆角 */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-ink-3 shrink-0 w-12">圆角</span>
+        <input
+          type="range"
+          min={0}
+          max={60}
+          step={1}
+          value={item.borderRadius}
+          onChange={(e) => update(item.id, { borderRadius: Number(e.target.value) })}
+          className="flex-1"
+          aria-label="圆角"
+        />
+        <span className="text-xs text-ink-3 shrink-0 w-8 text-right">{item.borderRadius}</span>
+      </div>
+
+      {/* 边框 */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() =>
+            update(item.id, {
+              borderWidth: item.borderWidth > 0 ? 0 : Math.max(1, Math.round(item.w * 0.01)),
+              borderColor: item.borderColor || '#E53935',
+            })
+          }
+          className={`inline-flex items-center gap-1 text-xs h-7 px-2.5 rounded-lg border ${
+            item.borderWidth > 0 ? 'text-ink border-ink' : 'text-ink-2 border-line'
+          }`}
+        >
+          <span className="w-3 h-0.5 bg-current inline-block" />
+          {item.borderWidth > 0 ? '边框 ON' : '边框 OFF'}
+        </button>
+        {item.borderWidth > 0 && (
+          <>
+            <input
+              type="range"
+              min={1}
+              max={Math.max(2, Math.round(item.w * 0.03))}
+              step={1}
+              value={item.borderWidth}
+              onChange={(e) => update(item.id, { borderWidth: Number(e.target.value) })}
+              className="flex-1"
+              aria-label="边框宽度"
+            />
+            <div className="flex items-center gap-1 overflow-x-auto shrink-0">
+              {COLORS.slice(0, 8).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => update(item.id, { borderColor: c })}
+                  className={`w-5 h-5 rounded-full border shrink-0 ${
+                    item.borderColor === c ? 'ring-2 ring-[#2E86C1] ring-offset-1' : ''
+                  }`}
+                  style={{ background: c, borderColor: '#E5E5E5' }}
+                  aria-label={`边框色 ${c}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ContentEditor({ scene, background, initialText, onClose }: Props) {
   const [page, setPage] = useState(initialText ? PAGE_A4 : { w: 0, h: 0 });
   const [bg, setBg] = useState<string | null>(initialText ? null : background || null);
@@ -181,7 +321,7 @@ export default function ContentEditor({ scene, background, initialText, onClose 
   const [sel, setSel] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
-  const [tab, setTab] = useState<'text' | 'image' | 'add'>('text');
+  const [tab, setTab] = useState<'text' | 'image' | 'rect' | 'add'>('text');
   const [zoom, setZoom] = useState(1);
   const [wrapW, setWrapW] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -266,7 +406,9 @@ export default function ContentEditor({ scene, background, initialText, onClose 
     if (editing === item.id && mode === 'move') return; // 编辑中让位给文本选择
     e.stopPropagation();
     setSel(item.id);
-    setTab(item.kind === 'text' ? 'text' : 'image');
+    if (item.kind === 'text') setTab('text');
+    else if (item.kind === 'image') setTab('image');
+    else setTab('rect');
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     dragRef.current = {
       id: item.id,
@@ -276,7 +418,7 @@ export default function ContentEditor({ scene, background, initialText, onClose 
       ox: item.x,
       oy: item.y,
       ow: item.w,
-      oh: item.kind === 'image' ? item.h : 0,
+      oh: item.kind === 'image' || item.kind === 'rect' ? (item as ImageItem | RectItem).h : 0,
     };
   };
 
@@ -291,9 +433,12 @@ export default function ContentEditor({ scene, background, initialText, onClose 
     }
     const item = items.find((i) => i.id === d.id);
     if (!item) return;
-    const w = Math.max(item.kind === 'text' ? 60 : 40, d.ow + dx);
+    const isRect = item.kind === 'rect';
+    const isImg = item.kind === 'image';
+    const w = Math.max(isImg || isRect ? 40 : 60, d.ow + dx);
     if (item.kind === 'text') update(d.id, { w });
-    else update(d.id, { w, h: w * (d.oh / d.ow) });
+    else if (isRect) update(d.id, { w, h: Math.max(24, d.oh + dy) });
+    else update(d.id, { w, h: w * (d.oh / d.ow) }); // 图片保持比例
   };
 
   const onUp = () => {
@@ -358,6 +503,14 @@ export default function ContentEditor({ scene, background, initialText, onClose 
       setTab('image');
     });
 
+  const addRect = () => {
+    const r = makeRect(page);
+    r.z = items.reduce((m, i) => Math.max(m, i.z), 0) + 1;
+    setItems((prev) => [...prev, r]);
+    setSel(r.id);
+    setTab('rect');
+  };
+
   const copyText = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -405,8 +558,10 @@ export default function ContentEditor({ scene, background, initialText, onClose 
       const { default: html2canvas } = await import('html2canvas');
       const base = 1 / k;
       const area = page.w * page.h;
-      const limit = 12e6; // 移动端 canvas 面积上限，超出则等比降采样
-      const scale = area > limit ? base * Math.sqrt(limit / area) : base;
+      // canvas 面积上限从 12MP 提到 24MP（现代手机浏览器普遍支持），导出更清晰
+      const limit = 24e6;
+      // 基础 scale 先适配上限，再乘以 1.5 倍超采样（参考 express-edit-pwa drawSuperSampledText 思路）
+      const scale = area > limit ? base * Math.sqrt(limit / area) : base * 1.5;
       const canvas = await html2canvas(el, {
         scale,
         backgroundColor: '#FFFFFF',
@@ -415,13 +570,27 @@ export default function ContentEditor({ scene, background, initialText, onClose 
         width: el.clientWidth,
         height: el.clientHeight,
       });
-      const url = canvas.toDataURL(mime, 0.92);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${scene}-edited.${mime === 'image/png' ? 'png' : 'jpg'}`;
-      a.click();
-      setExported(true);
-      setToast('已导出');
+      // toBlob 比 toDataURL 省内存（不用 base64 编码），参考 express-edit-pwa
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            setToast('导出失败：canvas 为空');
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${scene}-edited.${mime === 'image/png' ? 'png' : 'jpg'}`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1200);
+          setExported(true);
+          setToast('已导出');
+        },
+        mime,
+        0.92
+      );
     } catch (e: any) {
       setToast('导出失败：' + (e?.message || '未知错误'));
     } finally {
@@ -482,6 +651,32 @@ export default function ContentEditor({ scene, background, initialText, onClose 
       );
     }
 
+    if (it.kind === 'image') {
+      return (
+        <div
+          key={it.id}
+          style={{
+            position: 'absolute',
+            left: it.x * k,
+            top: it.y * k,
+            width: it.w * k,
+            height: it.h * k,
+            zIndex: 10 + it.z,
+            touchAction: 'none',
+          }}
+          onPointerDown={(e) => onDown(e, it, 'move')}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+        >
+          <img src={it.src} alt="" draggable={false} style={{ width: '100%', height: '100%', display: 'block' }} />
+          {frame}
+          {isSel && handle}
+        </div>
+      );
+    }
+
+    // RectItem
+    const r = it as RectItem;
     return (
       <div
         key={it.id}
@@ -493,12 +688,15 @@ export default function ContentEditor({ scene, background, initialText, onClose 
           height: it.h * k,
           zIndex: 10 + it.z,
           touchAction: 'none',
+          background: r.color,
+          opacity: r.opacity,
+          borderRadius: r.borderRadius * k,
+          border: r.borderWidth > 0 ? `${r.borderWidth * k}px solid ${r.borderColor}` : 'none',
         }}
         onPointerDown={(e) => onDown(e, it, 'move')}
         onPointerMove={onMove}
         onPointerUp={onUp}
       >
-        <img src={it.src} alt="" draggable={false} style={{ width: '100%', height: '100%', display: 'block' }} />
         {frame}
         {isSel && handle}
       </div>
@@ -788,6 +986,19 @@ export default function ContentEditor({ scene, background, initialText, onClose 
             </div>
           )}
 
+          {tab === 'rect' &&
+            (selItem && selItem.kind === 'rect' ? (
+              <RectPanel item={selItem} update={update} />
+            ) : (
+              <div className="flex flex-col items-start gap-3">
+                <p className="text-xs text-ink-3">点选纸面上的画框，即可改颜色、透明度、圆角、边框</p>
+                <button onClick={addRect} className={chip}>
+                  <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
+                  添加画框
+                </button>
+              </div>
+            ))}
+
           {tab === 'add' && (
             <div className="flex flex-wrap gap-2">
               <button onClick={addText} className={chip}>
@@ -798,6 +1009,10 @@ export default function ContentEditor({ scene, background, initialText, onClose 
                 <ImageIcon className="w-3.5 h-3.5" strokeWidth={1.75} />
                 添加图片
               </button>
+              <button onClick={addRect} className={chip}>
+                <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
+                添加画框
+              </button>
               <button onClick={() => pickImage((src) => setBg(src))} className={chip}>
                 <ImageIcon className="w-3.5 h-3.5" strokeWidth={1.75} />
                 更换背景图
@@ -806,12 +1021,13 @@ export default function ContentEditor({ scene, background, initialText, onClose 
           )}
         </div>
 
-        {/* 三个面板切换 */}
+        {/* 四个面板切换 */}
         <div className="flex border-t border-line">
           {(
             [
               ['text', '文字'],
               ['image', '图片'],
+              ['rect', '画框'],
               ['add', '添加'],
             ] as const
           ).map(([key, label]) => (
