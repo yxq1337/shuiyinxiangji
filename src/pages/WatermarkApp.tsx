@@ -266,6 +266,46 @@ export default function WatermarkApp() {
     });
   };
 
+  // 移动端保存：优先系统分享面板（可直接"保存图片/存入相册"），
+  // 其次 blob URL 下载，最后降级为长按保存预览层
+  const saveCanvasToGallery = async (canvas: HTMLCanvasElement, fileName: string): Promise<'shared' | 'downloaded' | 'preview'> => {
+    const blob = await canvasToBlob(canvas);
+
+    // 1. Web Share API（Android 标准存图路径，弹出系统分享面板）
+    const nav = navigator as Navigator & {
+      canShare?: (data: { files?: File[] }) => boolean;
+    };
+    if (typeof nav.share === 'function') {
+      try {
+        const file = new File([blob], fileName, { type: 'image/jpeg' });
+        if (!nav.canShare || nav.canShare({ files: [file] })) {
+          await nav.share({ files: [file], title: fileName });
+          return 'shared';
+        }
+      } catch (err) {
+        // 用户取消分享（AbortError）时直接结束，不再降级弹层
+        if (err instanceof DOMException && err.name === 'AbortError') return 'shared';
+        // 其他异常继续走降级
+      }
+    }
+
+    // 2. blob URL 下载（比 data: URL 兼容性好，华为等浏览器对大 data: URL 下载不可靠）
+    try {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = fileName;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      return 'downloaded';
+    } catch {
+      // 3. 最终兜底：长按保存预览层
+      return 'preview';
+    }
+  };
+
   // 保存图片到相册/本地
   const handleDownload = async () => {
     if (shouldShowLimit) {
@@ -278,10 +318,14 @@ export default function WatermarkApp() {
     const fileName = `watermark_${Date.now()}.jpg`;
     const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
 
-    // 移动端：弹出预览，引导长按保存到相册
+    // 移动端：直接拉起系统保存/分享，失败才降级到长按预览
     if (isMobileDevice) {
-      setSaveImageDataUrl(dataUrl);
-      setShowSavePreview(true);
+      const result = await saveCanvasToGallery(canvas, fileName).catch(() => 'preview' as const);
+
+      if (result === 'preview') {
+        setSaveImageDataUrl(dataUrl);
+        setShowSavePreview(true);
+      }
 
       if (isFreeUser) {
         const newCount = useCount + 1;
@@ -461,7 +505,18 @@ export default function WatermarkApp() {
                   <input
                     type="date"
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
+                    onChange={(e) => {
+                      const nextDate = e.target.value;
+                      setDate(nextDate);
+                      // 日期变更时自动联动星期
+                      if (nextDate) {
+                        const parsed = new Date(`${nextDate}T00:00:00`);
+                        if (!Number.isNaN(parsed.getTime())) {
+                          const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+                          setDay(days[parsed.getDay()]);
+                        }
+                      }
+                    }}
                     className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
                   />
                 </div>
