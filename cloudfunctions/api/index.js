@@ -229,7 +229,8 @@ exports.main = async (event, context) => {
   }
 
   // CloudBase HTTP 触发可能会带上 /api 前缀，需要处理
-  if (path.startsWith('/api')) {
+  // 使用 while 兼容历史前端构建出的双前缀（/api/api/...），逐段剥离到真实路由
+  while (path.startsWith('/api')) {
     path = path.slice(4);
   }
   if (!path.startsWith('/')) {
