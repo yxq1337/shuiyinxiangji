@@ -266,31 +266,10 @@ export default function WatermarkApp() {
     });
   };
 
-  // 移动端保存：优先系统分享面板（可直接"保存图片/存入相册"），
-  // 其次 blob URL 下载，最后降级为长按保存预览层
-  const saveCanvasToGallery = async (canvas: HTMLCanvasElement, fileName: string): Promise<'shared' | 'downloaded' | 'preview'> => {
-    const blob = await canvasToBlob(canvas);
-
-    // 1. Web Share API（Android 标准存图路径，弹出系统分享面板）
-    const nav = navigator as Navigator & {
-      canShare?: (data: { files?: File[] }) => boolean;
-    };
-    if (typeof nav.share === 'function') {
-      try {
-        const file = new File([blob], fileName, { type: 'image/jpeg' });
-        if (!nav.canShare || nav.canShare({ files: [file] })) {
-          await nav.share({ files: [file], title: fileName });
-          return 'shared';
-        }
-      } catch (err) {
-        // 用户取消分享（AbortError）时直接结束，不再降级弹层
-        if (err instanceof DOMException && err.name === 'AbortError') return 'shared';
-        // 其他异常继续走降级
-      }
-    }
-
-    // 2. blob URL 下载（比 data: URL 兼容性好，华为等浏览器对大 data: URL 下载不可靠）
+  // 预览层「直接下载」：blob URL 比 data: URL 在华为等浏览器上更可靠
+  const downloadCanvasViaBlob = async (canvas: HTMLCanvasElement, fileName: string): Promise<boolean> => {
     try {
+      const blob = await canvasToBlob(canvas);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.download = fileName;
@@ -299,10 +278,9 @@ export default function WatermarkApp() {
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
-      return 'downloaded';
+      return true;
     } catch {
-      // 3. 最终兜底：长按保存预览层
-      return 'preview';
+      return false;
     }
   };
 
@@ -318,14 +296,10 @@ export default function WatermarkApp() {
     const fileName = `watermark_${Date.now()}.jpg`;
     const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
 
-    // 移动端：直接拉起系统保存/分享，失败才降级到长按预览
+    // 移动端：弹出预览层，长按图片保存到相册
     if (isMobileDevice) {
-      const result = await saveCanvasToGallery(canvas, fileName).catch(() => 'preview' as const);
-
-      if (result === 'preview') {
-        setSaveImageDataUrl(dataUrl);
-        setShowSavePreview(true);
-      }
+      setSaveImageDataUrl(dataUrl);
+      setShowSavePreview(true);
 
       if (isFreeUser) {
         const newCount = useCount + 1;
@@ -647,13 +621,15 @@ export default function WatermarkApp() {
               >
                 返回编辑
               </button>
-              <a
-                href={saveImageDataUrl}
-                download={`watermark_${Date.now()}.jpg`}
+              <button
+                onClick={() => {
+                  if (!canvasRef.current) return;
+                  void downloadCanvasViaBlob(canvasRef.current, `watermark_${Date.now()}.jpg`);
+                }}
                 className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-center"
               >
                 直接下载
-              </a>
+              </button>
             </div>
           </div>
         </div>
