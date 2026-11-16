@@ -93,3 +93,55 @@ export async function apiPostLarge<T = any>(path: string, body: any): Promise<T>
     throw new Error(`Invalid JSON response: ${text.substring(0, 50)}`);
   }
 }
+
+// ==================== 管理员令牌（AI 外呼等敏感接口使用） ====================
+
+const ADMIN_TOKEN_KEY = 'adminToken';
+
+export function getAdminToken(): string | null {
+  try {
+    return localStorage.getItem(ADMIN_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setAdminToken(token: string | null): void {
+  try {
+    if (token) localStorage.setItem(ADMIN_TOKEN_KEY, token);
+    else localStorage.removeItem(ADMIN_TOKEN_KEY);
+  } catch {
+    // localStorage 不可用时静默忽略
+  }
+}
+
+function authHeaders(base: Record<string, string> = {}): Record<string, string> {
+  const token = getAdminToken();
+  return token ? { ...base, Authorization: `Bearer ${token}` } : base;
+}
+
+export async function apiAuthGet<T = any>(path: string): Promise<T> {
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error('JSON parse error:', e);
+    throw new Error(`Invalid JSON response: ${text.substring(0, 50)}`);
+  }
+}
+
+export async function apiAuthPost<T = any>(path: string, body?: any): Promise<T> {
+  const res = await fetch(apiUrl(path), {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error('JSON parse error:', e);
+    throw new Error(`Invalid JSON response: ${text.substring(0, 50)}`);
+  }
+}

@@ -2,6 +2,7 @@
 
 const cloud = require('@cloudbase/node-sdk');
 const https = require('https');
+const crypto = require('crypto');
 
 // 初始化 CloudBase SDK
 const app = cloud.init({
@@ -17,6 +18,7 @@ const paymentsCollection = db.collection('payments');
 const settingsCollection = db.collection('settings');
 const communityListingsCollection = db.collection('community_listings');
 const communityReportsCollection = db.collection('community_reports');
+const aiCallTasksCollection = db.collection('ai_call_tasks');
 
 // 工具函数
 function generateOrderId() {
@@ -173,6 +175,167 @@ function callQuarkVision(payload) {
     req.write(data);
     req.end();
   });
+}
+
+// ==================== AI 电话外呼（DeepSeek 话术 + 阿里云外呼线路） ====================
+
+function getRequestHeader(event, name) {
+  const headerMap = event.headers || {};
+  const key = Object.keys(headerMap).find((k) => k.toLowerCase() === name.toLowerCase());
+  return key ? headerMap[key] : undefined;
+}
+
+// 管理员令牌：登录时签发，HMAC-SHA256 签名，12 小时有效
+function adminTokenSecret() {
+  return process.env.ADMIN_TOKEN_SECRET || process.env.ADMIN_PASSWORD || 'yaobox-admin';
+}
+
+function signAdminToken(ttlMs = 12 * 60 * 60 * 1000) {
+  const payload = Buffer.from(JSON.stringify({ exp: Date.now() + ttlMs })).toString('base64url');
+  const signature = crypto.createHmac('sha256', adminTokenSecret()).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+
+function verifyAdminToken(event) {
+  const raw = getRequestHeader(event, 'authorization') || '';
+  const token = raw.replace(/^Bearer\s+/i, '').trim();
+  const [payload, signature] = token.split('.');
+  if (!payload || !signature) return false;
+  const expected = crypto.createHmac('sha256', adminTokenSecret()).update(payload).digest('base64url');
+  if (expected !== signature) return false;
+  try {
+    const { exp } = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    return typeof exp === 'number' && exp > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+function aiCallEnv() {
+  return {
+    deepseekKey: process.env.DEEPSEEK_API_KEY || '',
+    deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+    deepseekBase: process.env.DEEPSEEK_BASE || 'https://api.deepseek.com',
+    aliyunAccessKeyId: process.env.ALIYUN_ACCESS_KEY_ID || '',
+    aliyunAccessKeySecret: process.env.ALIYUN_ACCESS_KEY_SECRET || '',
+    aliyunEndpoint: process.env.ALIYUN_CALL_ENDPOINT || 'dyvmsapi.aliyuncs.com',
+    aliyunVersion: process.env.ALIYUN_CALL_VERSION || '2017-05-25',
+    aliyunAction: process.env.ALIYUN_CALL_ACTION || 'SingleCallByTts',
+    aliyunCallerNumber: process.env.ALIYUN_CALLER_NUMBER || '',
+    aliyunTtsCode: process.env.ALIYUN_TTS_CODE || '',
+    aliyunTtsContentKey: process.env.ALIYUN_TTS_CONTENT_KEY || 'content',
+    aliyunRegionId: process.env.ALIYUN_REGION_ID || 'cn-hangzhou',
+  };
+}
+
+function isAliyunConfigured(cfg) {
+  return Boolean(cfg.aliyunAccessKeyId && cfg.aliyunAccessKeySecret && cfg.aliyunCallerNumber && cfg.aliyunTtsCode);
+}
+
+// 阿里云 RPC 签名规范（SignatureVersion 1.0 / HMAC-SHA1）
+function percentEncode(value) {
+  return encodeURIComponent(String(value))
+    .replace(/\+/g, '%20')
+    .replace(/\*/g, '%2A')
+    .replace(/%7E/g, '~');
+}
+
+/**
+ * 通用阿里云 RPC 调用。
+ * 产品接口可通过环境变量配置（ALIYUN_CALL_ENDPOINT / VERSION / ACTION），
+ * 默认走语音服务 dyvmsapi 的 SingleCallByTts（语音通知外呼，需已审核的 TtsCode 模板）。
+ */
+async function aliyunRpc(cfg, action, params) {
+  const commonParams = {
+    Action: action,
+    Format: 'JSON',
+    Version: cfg.aliyunVersion,
+    AccessKeyId: cfg.aliyunAccessKeyId,
+    SignatureMethod: 'HMAC-SHA1',
+    SignatureVersion: '1.0',
+    SignatureNonce: crypto.randomUUID(),
+    Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    RegionId: cfg.aliyunRegionId,
+  };
+  const allParams = { ...commonParams, ...params };
+  const canonical = Object.keys(allParams)
+    .sort()
+    .map((key) => `${percentEncode(key)}=${percentEncode(allParams[key])}`)
+    .join('&');
+  const stringToSign = `POST&${percentEncode('/')}&${percentEncode(canonical)}`;
+  const signature = crypto
+    .createHmac('sha1', `${cfg.aliyunAccessKeySecret}&`)
+    .update(stringToSign)
+    .digest('base64');
+
+  const res = await fetch(`https://${cfg.aliyunEndpoint}/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `Signature=${percentEncode(signature)}&${canonical}`,
+  });
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = { raw: text.slice(0, 500) };
+  }
+  // 阿里云错误响应带 Code 字段
+  return { ok: res.ok && !data.Code, status: res.status, data };
+}
+
+async function deepseekChat(cfg, messages, options = {}) {
+  const res = await fetch(`${cfg.deepseekBase}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${cfg.deepseekKey}`,
+    },
+    body: JSON.stringify({
+      model: cfg.deepseekModel,
+      messages,
+      temperature: options.temperature ?? 0.7,
+      max_tokens: options.maxTokens ?? 1200,
+    }),
+  });
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`DeepSeek 返回非 JSON（HTTP ${res.status}）`);
+  }
+  if (!res.ok || data.error) {
+    throw new Error((data.error && data.error.message) || `DeepSeek 请求失败（HTTP ${res.status}）`);
+  }
+  return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+}
+
+async function ensureAiCallCollection() {
+  try {
+    await aiCallTasksCollection.limit(1).get();
+  } catch (err) {
+    const message = String((err && err.message) || '');
+    const code = String((err && err.code) || '');
+    if (message.includes('not exist') || code.includes('COLLECTION_NOT_EXIST')) {
+      await db.createCollection('ai_call_tasks');
+    } else {
+      throw err;
+    }
+  }
+}
+
+async function placeOutboundCall(cfg, number, script) {
+  const params = {
+    CalledNumber: number,
+    CalledShowNumber: cfg.aliyunCallerNumber,
+    TtsCode: cfg.aliyunTtsCode,
+  };
+  if (script) {
+    const content = String(script).replace(/\s+/g, ' ').slice(0, 200);
+    params.TtsParam = JSON.stringify({ [cfg.aliyunTtsContentKey]: content });
+  }
+  return aliyunRpc(cfg, cfg.aliyunAction, params);
 }
 
 exports.main = async (event, context) => {
@@ -368,6 +531,7 @@ exports.main = async (event, context) => {
             headers,
             body: JSON.stringify({
               success: true,
+              adminToken: signAdminToken(),
               user: {
                 id: 'admin',
                 phone: 'admin',
@@ -1101,6 +1265,206 @@ exports.main = async (event, context) => {
         rejectReason: b.reason || '',
       });
       return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
+    }
+
+    // ==================== AI 电话外呼 ====================
+    if (path.startsWith('/ai-call/') || path === '/ai-call') {
+      const aiRespond = (statusCode, payload) => ({
+        statusCode,
+        headers,
+        body: JSON.stringify(payload),
+      });
+      const denied = () =>
+        verifyAdminToken(event)
+          ? null
+          : aiRespond(401, { success: false, error: '需要管理员令牌，请重新以管理员身份登录' });
+
+      // 配置状态
+      if (httpMethod === 'GET' && path === '/ai-call/status') {
+        const d = denied();
+        if (d) return d;
+        const cfg = aiCallEnv();
+        return aiRespond(200, {
+          success: true,
+          data: {
+            deepseekConfigured: Boolean(cfg.deepseekKey),
+            deepseekModel: cfg.deepseekModel,
+            aliyunConfigured: isAliyunConfigured(cfg),
+            aliyunAction: cfg.aliyunAction,
+            aliyunCallerNumber: cfg.aliyunCallerNumber
+              ? cfg.aliyunCallerNumber.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2')
+              : '',
+          },
+        });
+      }
+
+      // DeepSeek 生成外呼话术
+      if (httpMethod === 'POST' && path === '/ai-call/script') {
+        const d = denied();
+        if (d) return d;
+        const cfg = aiCallEnv();
+        if (!cfg.deepseekKey) {
+          return aiRespond(503, {
+            success: false,
+            error: 'DeepSeek 未配置：请在云函数环境变量中设置 DEEPSEEK_API_KEY',
+          });
+        }
+        const { requirement, tone } = body || {};
+        if (!requirement || !String(requirement).trim()) {
+          return aiRespond(400, { success: false, error: '请填写外呼需求' });
+        }
+        try {
+          const content = await deepseekChat(
+            cfg,
+            [
+              {
+                role: 'system',
+                content:
+                  '你是电话外呼话术专家。根据用户给出的外呼需求，生成一段可以直接由 AI 语音机器人朗读的电话话术。' +
+                  '要求：1) 开场自报身份；2) 口语化、简短，整段控制在 60 秒内；3) 覆盖关键信息点；' +
+                  '4) 结尾礼貌收尾；5) 只输出话术正文，不要标题、编号或解释。',
+              },
+              {
+                role: 'user',
+                content: `外呼需求：${String(requirement).trim()}${tone ? `\n语气要求：${tone}` : ''}`,
+              },
+            ],
+            { temperature: 0.6, maxTokens: 800 }
+          );
+          return aiRespond(200, { success: true, data: { script: content.trim() } });
+        } catch (err) {
+          return aiRespond(502, { success: false, error: `话术生成失败：${err.message}` });
+        }
+      }
+
+      // 创建外呼任务
+      if (httpMethod === 'POST' && path === '/ai-call/tasks') {
+        const d = denied();
+        if (d) return d;
+        const cfg = aiCallEnv();
+        const b = body || {};
+        const rawNumbers = Array.isArray(b.numbers) ? b.numbers : [];
+        const cleaned = Array.from(
+          new Set(
+            rawNumbers
+              .map((n) => String(n).replace(/\D/g, ''))
+              .filter((n) => /^1[3-9]\d{9}$/.test(n))
+          )
+        );
+        if (!cleaned.length) {
+          return aiRespond(400, { success: false, error: '请提供至少一个有效手机号（11 位）' });
+        }
+        if (cleaned.length > 50) {
+          return aiRespond(400, { success: false, error: '单次最多 50 个号码，请分批创建' });
+        }
+        const script = b.script ? String(b.script).trim() : '';
+        if (!script) {
+          return aiRespond(400, { success: false, error: '缺少外呼话术，可先用 AI 生成' });
+        }
+
+        await ensureAiCallCollection();
+
+        const configured = isAliyunConfigured(cfg);
+        const simulate = Boolean(b.dryRun) || !configured;
+        const results = [];
+
+        if (simulate) {
+          for (const number of cleaned) {
+            results.push({
+              number,
+              ok: null,
+              message: configured ? '演练模式：未真实拨打' : '未配置阿里云外呼密钥：未真实拨打',
+            });
+          }
+        } else {
+          for (const number of cleaned) {
+            try {
+              const r = await placeOutboundCall(cfg, number, script);
+              results.push({
+                number,
+                ok: r.ok,
+                callId: r.data && (r.data.CallId || r.data.RequestId),
+                message: r.ok
+                  ? '已提交外呼'
+                  : (r.data && (r.data.Message || r.data.Code)) || `HTTP ${r.status}`,
+              });
+            } catch (err) {
+              results.push({ number, ok: false, message: err.message });
+            }
+          }
+        }
+
+        const now = new Date().toISOString();
+        const succeeded = results.filter((r) => r.ok).length;
+        const doc = {
+          numbers: cleaned,
+          script,
+          requirement: b.requirement ? String(b.requirement).slice(0, 500) : '',
+          scenario: b.scenario ? String(b.scenario).slice(0, 100) : '',
+          status: simulate
+            ? configured
+              ? 'dry_run'
+              : 'pending_config'
+            : succeeded === cleaned.length
+              ? 'submitted'
+              : succeeded === 0
+                ? 'failed'
+                : 'partial_failed',
+          results,
+          createdAt: now,
+          updatedAt: now,
+        };
+        const addResult = await aiCallTasksCollection.add(doc);
+        return aiRespond(200, { success: true, data: { id: addResult.id, ...doc } });
+      }
+
+      // 任务列表
+      if (httpMethod === 'GET' && path === '/ai-call/tasks') {
+        const d = denied();
+        if (d) return d;
+        await ensureAiCallCollection();
+        const result = await aiCallTasksCollection.orderBy('createdAt', 'desc').limit(50).get();
+        return aiRespond(200, {
+          success: true,
+          data: result.data.map((item) => ({ id: item._id, ...item })),
+        });
+      }
+
+      // 任务详情
+      if (httpMethod === 'GET' && path.match(/^\/ai-call\/tasks\/[^/]+$/)) {
+        const d = denied();
+        if (d) return d;
+        const id = path.split('/').pop();
+        const result = await aiCallTasksCollection.doc(id).get();
+        if (!result.data.length) {
+          return aiRespond(404, { success: false, error: '任务不存在' });
+        }
+        return aiRespond(200, { success: true, data: { id, ...result.data[0] } });
+      }
+
+      // 服务商回调（预留）：阿里云外呼结果回调入口
+      // TODO 账号开通后按阿里云文档在此处增加回调签名校验（防止伪造状态）
+      if (httpMethod === 'POST' && path === '/ai-call/callback') {
+        const b = body || {};
+        if (!b.taskId) {
+          return aiRespond(400, { success: false, error: '缺少 taskId' });
+        }
+        await ensureAiCallCollection();
+        const now = new Date().toISOString();
+        await aiCallTasksCollection.doc(String(b.taskId)).update({
+          lastCallback: {
+            number: b.number || '',
+            status: b.status || '',
+            callId: b.callId || '',
+            duration: b.duration || 0,
+            at: now,
+          },
+          updatedAt: now,
+        });
+        return aiRespond(200, { success: true });
+      }
+
+      return aiRespond(404, { success: false, error: 'API not found', path });
     }
 
     // 404

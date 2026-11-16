@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Wrench, ArrowLeft, Sparkles, Camera, Volume2, ScanText, ArrowUpRight, Pencil } from 'lucide-react';
+import { Wrench, ArrowLeft, Sparkles, Camera, Volume2, ScanText, ArrowUpRight, Pencil, PhoneCall } from 'lucide-react';
 
 interface ToolEntry {
   name: string;
@@ -41,6 +41,13 @@ export default function OtherTools() {
       desc: '上传截图 · 自由加文字/图片 · 导出 PNG/JPG',
       icon: <Pencil className="w-[18px] h-[18px]" strokeWidth={1.5} />,
       path: '/tool/annotate',
+      isNew: true,
+    },
+    {
+      name: 'AI 电话外呼',
+      desc: 'DeepSeek 生成话术 · 阿里云线路外呼',
+      icon: <PhoneCall className="w-[18px] h-[18px]" strokeWidth={1.5} />,
+      path: '/tool/ai-call',
       isNew: true,
     },
   ];

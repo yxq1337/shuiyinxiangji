@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { apiPost, apiGet } from '../lib/api';
+import { apiPost, apiGet, setAdminToken } from '../lib/api';
 
 interface User {
   id: string;
@@ -40,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (phone: string) => {
     const data = await apiPost('/api/auth/login', { phone });
     if (data.success) {
+      setAdminToken(null);
       setUser(data.user);
       localStorage.setItem('user', JSON.stringify(data.user));
     } else {
@@ -50,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginAdmin = async (username: string, password: string) => {
     const data = await apiPost('/api/auth/login', { username, password });
     if (data.success) {
+      setAdminToken(data.adminToken || null);
       setUser(data.user);
       localStorage.setItem('user', JSON.stringify(data.user));
     } else {
@@ -58,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    setAdminToken(null);
     setUser(null);
     localStorage.removeItem('user');
   };
