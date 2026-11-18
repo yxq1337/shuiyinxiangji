@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
@@ -16,12 +16,14 @@ import TTSPage from './pages/TTSPage';
 import QuarkScanPage from './pages/QuarkScanPage';
 import ScreenshotAnnotate from './pages/ScreenshotAnnotate';
 import AICallPage from './pages/AICallPage';
-import GalleryHeadingPage from './pages/GalleryHeadingPage';
 import Community from './pages/Community';
 import PublishListing from './pages/PublishListing';
 import ListingDetail from './pages/ListingDetail';
 import CheckinManage from './pages/CheckinManage';
 import CheckinSign from './pages/CheckinSign';
+
+// three.js 较重，单独懒加载，避免拖慢主包
+const GalleryHeadingPage = lazy(() => import('./pages/GalleryHeadingPage'));
 
 function AppShell() {
   const { pathname } = useLocation();
@@ -45,7 +47,14 @@ function AppShell() {
           <Route path="/tool/quark-scan" element={<QuarkScanPage />} />
           <Route path="/tool/annotate" element={<ScreenshotAnnotate />} />
           <Route path="/tool/ai-call" element={<AICallPage />} />
-          <Route path="/tool/gallery-heading" element={<GalleryHeadingPage />} />
+          <Route
+            path="/tool/gallery-heading"
+            element={
+              <Suspense fallback={null}>
+                <GalleryHeadingPage />
+              </Suspense>
+            }
+          />
           <Route path="/login" element={<Login />} />
           <Route path="/my" element={<UserCenter />} />
           <Route path="/pricing" element={<Pricing />} />
