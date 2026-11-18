@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Wrench, ArrowLeft, Sparkles, Camera, Volume2, ScanText, ArrowUpRight, Pencil, PhoneCall } from 'lucide-react';
+import { Wrench, ArrowLeft, Sparkles, Camera, Volume2, ScanText, ArrowUpRight, Pencil, PhoneCall, QrCode } from 'lucide-react';
 
 interface ToolEntry {
   name: string;
@@ -22,6 +22,13 @@ export default function OtherTools() {
       desc: '自定义时间地点天气水印',
       icon: <Camera className="w-[18px] h-[18px]" strokeWidth={1.5} />,
       path: '/camera',
+    },
+    {
+      name: '扫描签到',
+      desc: '划定区域 · 微信扫码填写真实姓名 · 统计到场人员',
+      icon: <QrCode className="w-[18px] h-[18px]" strokeWidth={1.5} />,
+      path: '/tool/checkin',
+      isNew: true,
     },
     {
       name: 'AI 语音合成',

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Phone, ArrowRight, Lock, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -14,6 +14,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const { login, loginAdmin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +36,8 @@ export default function Login() {
           return;
         }
         await login(phone.trim());
-        navigate('/');
+        const from = (location.state as { from?: string } | null)?.from;
+        navigate(from && from.startsWith('/') && !from.startsWith('//') ? from : '/');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败');

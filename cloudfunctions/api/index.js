@@ -19,6 +19,8 @@ const settingsCollection = db.collection('settings');
 const communityListingsCollection = db.collection('community_listings');
 const communityReportsCollection = db.collection('community_reports');
 const aiCallTasksCollection = db.collection('ai_call_tasks');
+const checkinEventsCollection = db.collection('checkin_events');
+const checkinRecordsCollection = db.collection('checkin_records');
 
 // 工具函数
 function generateOrderId() {
@@ -129,6 +131,87 @@ async function getUserById(id) {
     return null;
   }
   return result.data[0];
+}
+
+// ==================== 扫描签到 ====================
+const CHECKIN_GPS_TOLERANCE_M = 20;
+
+function checkinDistanceMeters(lat1, lng1, lat2, lng2) {
+  const earth = 6371000;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * earth * Math.asin(Math.min(1, Math.sqrt(a))));
+}
+
+function parseCheckinName(raw) {
+  const name = String(raw || '').trim().replace(/\s+/g, '');
+  if (!/^[\u4e00-\u9fa5·]{2,20}$/.test(name)) return null;
+  if (name.replace(/·/g, '').length < 2) return null;
+  return name;
+}
+
+function randomCheckinCode(length = 6) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < length; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  return code;
+}
+
+function mapCheckinDoc(doc, count, withCenter) {
+  const view = {
+    code: doc.code,
+    title: doc.title,
+    address: doc.address || '',
+    radiusMeters: doc.radiusMeters,
+    status: doc.status,
+    count: count || 0,
+  };
+  if (withCenter) {
+    view.latitude = doc.latitude;
+    view.longitude = doc.longitude;
+    view.createdAt = doc.createdAt;
+  }
+  return view;
+}
+
+async function findCheckinByCode(code) {
+  const normalized = String(code || '').trim().toUpperCase();
+  const result = await checkinEventsCollection.where({ code: normalized }).limit(1).get();
+  if (!result.data || !result.data.length) return null;
+  return result.data[0];
+}
+
+async function listCheckinRecords(eventId) {
+  const result = await checkinRecordsCollection.where({ eventId }).limit(1000).get();
+  return result.data || [];
+}
+
+function evaluateCheckinSign(doc, body) {
+  if (doc.status !== 'open') return { ok: false, status: 403, error: '签到已结束' };
+  const realName = parseCheckinName(body && body.realName);
+  if (!realName) return { ok: false, status: 400, error: '请填写真实姓名（2-20 个汉字）' };
+  const latitude = Number(body && body.latitude);
+  const longitude = Number(body && body.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+    return { ok: false, status: 400, error: '无法读取位置，请允许定位后重试' };
+  }
+  const accuracy = Number(body && body.accuracy);
+  if (Number.isFinite(accuracy) && accuracy > Math.max(doc.radiusMeters, 100)) {
+    return { ok: false, status: 400, error: `定位不够精确（误差约 ${Math.round(accuracy)} 米），请打开手机定位或走到窗边后重试` };
+  }
+  const distance = checkinDistanceMeters(doc.latitude, doc.longitude, latitude, longitude);
+  if (distance > doc.radiusMeters + CHECKIN_GPS_TOLERANCE_M) {
+    return {
+      ok: false,
+      status: 403,
+      error: `不在签到区域内：距离签到点 ${distance} 米，仅限 ${doc.radiusMeters} 米内`,
+      distanceMeters: distance,
+      radiusMeters: doc.radiusMeters,
+    };
+  }
+  return { ok: true, realName, latitude, longitude, distanceMeters: distance };
 }
 
 // ==================== 夸克扫描王（第三方 AI 文档处理） ====================
@@ -591,6 +674,8 @@ exports.main = async (event, context) => {
     // 确保社区集合存在（首次访问自动创建）
     try { await db.createCollection('community_listings'); } catch (e) {}
     try { await db.createCollection('community_reports'); } catch (e) {}
+    try { await db.createCollection('checkin_events'); } catch (e) {}
+    try { await db.createCollection('checkin_records'); } catch (e) {}
 
     // ==================== 认证 API ====================
 
@@ -1592,6 +1677,139 @@ exports.main = async (event, context) => {
       }
 
       return aiRespond(404, { success: false, error: 'API not found', path });
+    }
+
+    // ==================== 扫描签到 ====================
+    const checkinJson = (statusCode, payload) => ({
+      statusCode,
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (httpMethod === 'POST' && path === '/checkin/events') {
+      const b = body || {};
+      const title = String(b.title || '').trim();
+      const latitude = Number(b.latitude);
+      const longitude = Number(b.longitude);
+      const radius = Math.round(Number(b.radiusMeters));
+      const ownerId = String(b.ownerId || '').trim();
+      if (!title || title.length > 40) return checkinJson(400, { success: false, error: '请填写 1-40 字的签到名称' });
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+        return checkinJson(400, { success: false, error: '请先定位签到区域' });
+      }
+      if (!Number.isFinite(radius) || radius < 50 || radius > 5000) {
+        return checkinJson(400, { success: false, error: '签到半径需在 50 米到 5 公里之间' });
+      }
+      if (!ownerId) return checkinJson(400, { success: false, error: '请先登录' });
+
+      let code = randomCheckinCode();
+      for (let i = 0; i < 8; i++) {
+        const taken = await checkinEventsCollection.where({ code }).limit(1).get();
+        if (!taken.data || !taken.data.length) break;
+        code = randomCheckinCode(i === 7 ? 8 : 6);
+      }
+      const now = new Date().toISOString();
+      const doc = {
+        code,
+        title,
+        address: String(b.address || '').trim().slice(0, 80),
+        latitude,
+        longitude,
+        radiusMeters: radius,
+        ownerId,
+        ownerPhone: String(b.ownerPhone || '').slice(0, 20),
+        status: 'open',
+        createdAt: now,
+      };
+      const added = await checkinEventsCollection.add(doc);
+      return checkinJson(200, { success: true, event: mapCheckinDoc({ ...doc, _id: added.id }, 0, true) });
+    }
+
+    if (httpMethod === 'GET' && path === '/checkin/mine') {
+      const q = { ...(event.queryStringParameters || {}), ...(event.query || {}) };
+      const ownerId = String(q.ownerId || '').trim();
+      if (!ownerId) return checkinJson(400, { success: false, error: '缺少创建者' });
+      const result = await checkinEventsCollection.where({ ownerId }).limit(100).get();
+      const docs = (result.data || []).slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+      const events = [];
+      for (const doc of docs) {
+        const records = await listCheckinRecords(doc._id);
+        events.push(mapCheckinDoc(doc, records.length, true));
+      }
+      return checkinJson(200, { success: true, events });
+    }
+
+    if (httpMethod === 'GET' && path.match(/^\/checkin\/events\/[^/]+\/roster$/)) {
+      const code = path.split('/')[3];
+      const doc = await findCheckinByCode(code);
+      if (!doc) return checkinJson(404, { success: false, error: '签到不存在' });
+      const q = { ...(event.queryStringParameters || {}), ...(event.query || {}) };
+      const ownerId = String(q.ownerId || '').trim();
+      if (!ownerId || ownerId !== doc.ownerId) {
+        return checkinJson(403, { success: false, error: '只有创建者可以查看签到人员' });
+      }
+      const records = (await listCheckinRecords(doc._id))
+        .map((item) => ({ realName: item.realName, distanceMeters: item.distanceMeters, createdAt: item.createdAt }))
+        .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+      return checkinJson(200, { success: true, event: mapCheckinDoc(doc, records.length, true), records });
+    }
+
+    if (httpMethod === 'GET' && path.match(/^\/checkin\/events\/[^/]+$/)) {
+      const code = path.split('/')[3];
+      const doc = await findCheckinByCode(code);
+      if (!doc) return checkinJson(404, { success: false, error: '签到不存在' });
+      const records = await listCheckinRecords(doc._id);
+      return checkinJson(200, { success: true, event: mapCheckinDoc(doc, records.length, false) });
+    }
+
+    if (httpMethod === 'POST' && path.match(/^\/checkin\/events\/[^/]+\/sign$/)) {
+      const code = path.split('/')[3];
+      const doc = await findCheckinByCode(code);
+      if (!doc) return checkinJson(404, { success: false, error: '签到不存在' });
+      const decision = evaluateCheckinSign(doc, body || {});
+      if (!decision.ok) {
+        return checkinJson(decision.status, {
+          success: false,
+          error: decision.error,
+          distanceMeters: decision.distanceMeters,
+          radiusMeters: decision.radiusMeters,
+        });
+      }
+      const existing = (await checkinRecordsCollection.where({ eventId: doc._id, realName: decision.realName }).limit(1).get()).data || [];
+      if (existing.length) {
+        const item = existing[0];
+        return checkinJson(200, {
+          success: true,
+          already: true,
+          record: { realName: item.realName, distanceMeters: item.distanceMeters, createdAt: item.createdAt },
+        });
+      }
+      const now = new Date().toISOString();
+      await checkinRecordsCollection.add({
+        eventId: doc._id,
+        realName: decision.realName,
+        latitude: decision.latitude,
+        longitude: decision.longitude,
+        distanceMeters: decision.distanceMeters,
+        createdAt: now,
+      });
+      return checkinJson(200, {
+        success: true,
+        record: { realName: decision.realName, distanceMeters: decision.distanceMeters, createdAt: now },
+      });
+    }
+
+    if (httpMethod === 'POST' && path.match(/^\/checkin\/events\/[^/]+\/close$/)) {
+      const code = path.split('/')[3];
+      const doc = await findCheckinByCode(code);
+      if (!doc) return checkinJson(404, { success: false, error: '签到不存在' });
+      const ownerId = String((body || {}).ownerId || '').trim();
+      if (!ownerId || ownerId !== doc.ownerId) {
+        return checkinJson(403, { success: false, error: '只有创建者可以结束签到' });
+      }
+      await checkinEventsCollection.doc(doc._id).update({ status: 'closed' });
+      const records = await listCheckinRecords(doc._id);
+      return checkinJson(200, { success: true, event: mapCheckinDoc({ ...doc, status: 'closed' }, records.length, true) });
     }
 
     // 404

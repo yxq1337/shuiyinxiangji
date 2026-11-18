@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -20,41 +20,54 @@ import AICallPage from './pages/AICallPage';
 import Community from './pages/Community';
 import PublishListing from './pages/PublishListing';
 import ListingDetail from './pages/ListingDetail';
+import CheckinManage from './pages/CheckinManage';
+import CheckinSign from './pages/CheckinSign';
+
+function AppShell() {
+  const { pathname } = useLocation();
+  const bare = /^\/checkin\/[^/]+$/.test(pathname);
+
+  return (
+    <div className="min-h-screen bg-transparent flex flex-col">
+      {!bare && <Navbar />}
+      <main className={`flex-1 flex flex-col ${bare ? '' : 'pt-14 md:pt-0'}`}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/camera" element={<WatermarkApp />} />
+          <Route path="/tools" element={<OtherTools />} />
+          <Route path="/tool/checkin" element={<CheckinManage />} />
+          <Route path="/checkin/:code" element={<CheckinSign />} />
+          <Route path="/tool/compress" element={<OtherTools />} />
+          <Route path="/tool/idphoto" element={<OtherTools />} />
+          <Route path="/tool/ocr" element={<OtherTools />} />
+          <Route path="/tool/enhance" element={<OtherTools />} />
+          <Route path="/tool/tts" element={<TTSPage />} />
+          <Route path="/tool/quark-scan" element={<QuarkScanPage />} />
+          <Route path="/tool/annotate" element={<ScreenshotAnnotate />} />
+          <Route path="/tool/ai-call" element={<AICallPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/my" element={<UserCenter />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/payment/pending" element={<PaymentPending />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/customer-service" element={<CustomerService />} />
+          {/* 骑手社区 */}
+          <Route path="/community" element={<Community />} />
+          <Route path="/community/publish" element={<PublishListing />} />
+          <Route path="/community/listing/:id" element={<ListingDetail />} />
+        </Routes>
+      </main>
+      {!bare && <Footer />}
+      {!bare && <BottomNav />}
+    </div>
+  );
+}
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <div className="min-h-screen bg-transparent flex flex-col">
-          <Navbar />
-          <main className="flex-1 flex flex-col pt-14 md:pt-0">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/camera" element={<WatermarkApp />} />
-              <Route path="/tools" element={<OtherTools />} />
-              <Route path="/tool/compress" element={<OtherTools />} />
-              <Route path="/tool/idphoto" element={<OtherTools />} />
-              <Route path="/tool/ocr" element={<OtherTools />} />
-              <Route path="/tool/enhance" element={<OtherTools />} />
-              <Route path="/tool/tts" element={<TTSPage />} />
-              <Route path="/tool/quark-scan" element={<QuarkScanPage />} />
-              <Route path="/tool/annotate" element={<ScreenshotAnnotate />} />
-              <Route path="/tool/ai-call" element={<AICallPage />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/my" element={<UserCenter />} />
-              <Route path="/pricing" element={<Pricing />} />
-              <Route path="/payment/pending" element={<PaymentPending />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/customer-service" element={<CustomerService />} />
-              {/* 骑手社区 */}
-              <Route path="/community" element={<Community />} />
-              <Route path="/community/publish" element={<PublishListing />} />
-              <Route path="/community/listing/:id" element={<ListingDetail />} />
-            </Routes>
-          </main>
-          <Footer />
-          <BottomNav />
-        </div>
+        <AppShell />
       </BrowserRouter>
     </AuthProvider>
   );

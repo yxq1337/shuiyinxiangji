@@ -1,6 +1,15 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
+import {
+  evaluateSign,
+  normalizeCheckinCode,
+  parseAddress,
+  parseLatLng,
+  parseRadius,
+  parseTitle,
+  randomCheckinCode,
+} from "./shared/checkin";
 
 // 本地内存存储
 interface Payment {
@@ -81,6 +90,75 @@ interface CommunityReport {
 }
 
 const COMMUNITY_EXPIRE_DAYS = 15;
+
+interface CheckinEvent {
+  id: string;
+  code: string;
+  title: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
+  owner_id: string;
+  owner_phone: string;
+  status: 'open' | 'closed';
+  created_at: string;
+}
+
+interface CheckinRecord {
+  id: string;
+  event_id: string;
+  real_name: string;
+  latitude: number;
+  longitude: number;
+  distance_meters: number;
+  created_at: string;
+}
+
+let checkinEvents: CheckinEvent[] = [];
+let checkinRecords: CheckinRecord[] = [];
+
+function checkinCount(eventId: string) {
+  return checkinRecords.filter((item) => item.event_id === eventId).length;
+}
+
+function mapCheckin(event: CheckinEvent, withCenter: boolean) {
+  return {
+    code: event.code,
+    title: event.title,
+    address: event.address,
+    radiusMeters: event.radius_meters,
+    status: event.status,
+    count: checkinCount(event.id),
+    ...(withCenter
+      ? { latitude: event.latitude, longitude: event.longitude, createdAt: event.created_at }
+      : {}),
+  };
+}
+
+function mapCheckinPeople(eventId: string) {
+  return checkinRecords
+    .filter((item) => item.event_id === eventId)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((item) => ({
+      realName: item.real_name,
+      distanceMeters: item.distance_meters,
+      createdAt: item.created_at,
+    }));
+}
+
+function findCheckin(code: string) {
+  const normalized = normalizeCheckinCode(code);
+  return checkinEvents.find((item) => item.code === normalized) || null;
+}
+
+function newCheckinCode() {
+  for (let i = 0; i < 8; i++) {
+    const code = randomCheckinCode();
+    if (!checkinEvents.some((item) => item.code === code)) return code;
+  }
+  return randomCheckinCode(8);
+}
 
 let communityListings: CommunityListing[] = [
   {
@@ -193,7 +271,7 @@ function mapUser(row: any): any {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json({ limit: '50mb' }));
 
@@ -732,6 +810,129 @@ async function startServer() {
     order.reviewed_by = 'admin';
 
     res.json({ success: true });
+  });
+
+  // ==================== 扫描签到 ====================
+
+  app.post('/api/checkin/events', (req, res) => {
+    const title = parseTitle(req.body?.title);
+    const center = parseLatLng(req.body?.latitude, req.body?.longitude);
+    const radius = parseRadius(req.body?.radiusMeters);
+    const ownerId = String(req.body?.ownerId || '').trim();
+    if (!title) return res.status(400).json({ success: false, error: '请填写 1-40 字的签到名称' });
+    if (!center) return res.status(400).json({ success: false, error: '请先定位签到区域' });
+    if (!radius) return res.status(400).json({ success: false, error: '签到半径需在 50 米到 5 公里之间' });
+    if (!ownerId) return res.status(400).json({ success: false, error: '请先登录' });
+
+    const event: CheckinEvent = {
+      id: 'ce' + Date.now() + Math.random().toString(36).slice(2, 6),
+      code: newCheckinCode(),
+      title,
+      address: parseAddress(req.body?.address),
+      latitude: center.latitude,
+      longitude: center.longitude,
+      radius_meters: radius,
+      owner_id: ownerId,
+      owner_phone: String(req.body?.ownerPhone || '').slice(0, 20),
+      status: 'open',
+      created_at: new Date().toISOString(),
+    };
+    checkinEvents.unshift(event);
+    res.json({ success: true, event: mapCheckin(event, true) });
+  });
+
+  app.get('/api/checkin/mine', (req, res) => {
+    const ownerId = String(req.query.ownerId || '').trim();
+    if (!ownerId) return res.status(400).json({ success: false, error: '缺少创建者' });
+    const events = checkinEvents
+      .filter((item) => item.owner_id === ownerId)
+      .map((item) => mapCheckin(item, true));
+    res.json({ success: true, events });
+  });
+
+  app.get('/api/checkin/events/:code/roster', (req, res) => {
+    const event = findCheckin(req.params.code);
+    if (!event) return res.status(404).json({ success: false, error: '签到不存在' });
+    const ownerId = String(req.query.ownerId || '').trim();
+    if (!ownerId || ownerId !== event.owner_id) {
+      return res.status(403).json({ success: false, error: '只有创建者可以查看签到人员' });
+    }
+    res.json({ success: true, event: mapCheckin(event, true), records: mapCheckinPeople(event.id) });
+  });
+
+  app.get('/api/checkin/events/:code', (req, res) => {
+    const event = findCheckin(req.params.code);
+    if (!event) return res.status(404).json({ success: false, error: '签到不存在' });
+    res.json({ success: true, event: mapCheckin(event, false) });
+  });
+
+  app.post('/api/checkin/events/:code/sign', (req, res) => {
+    const event = findCheckin(req.params.code);
+    if (!event) return res.status(404).json({ success: false, error: '签到不存在' });
+
+    const decision = evaluateSign({
+      eventStatus: event.status,
+      centerLat: event.latitude,
+      centerLng: event.longitude,
+      radiusMeters: event.radius_meters,
+      realName: req.body?.realName,
+      latitude: req.body?.latitude,
+      longitude: req.body?.longitude,
+      accuracy: req.body?.accuracy,
+    });
+    if (decision.ok === false) {
+      return res.status(decision.status).json({
+        success: false,
+        error: decision.error,
+        distanceMeters: decision.distanceMeters,
+        radiusMeters: decision.radiusMeters,
+      });
+    }
+
+    const existing = checkinRecords.find(
+      (item) => item.event_id === event.id && item.real_name === decision.realName
+    );
+    if (existing) {
+      return res.json({
+        success: true,
+        already: true,
+        record: {
+          realName: existing.real_name,
+          distanceMeters: existing.distance_meters,
+          createdAt: existing.created_at,
+        },
+      });
+    }
+
+    const record: CheckinRecord = {
+      id: 'cr' + Date.now() + Math.random().toString(36).slice(2, 6),
+      event_id: event.id,
+      real_name: decision.realName,
+      latitude: decision.latitude,
+      longitude: decision.longitude,
+      distance_meters: decision.distanceMeters,
+      created_at: new Date().toISOString(),
+    };
+    checkinRecords.push(record);
+    res.json({
+      success: true,
+      record: {
+        realName: record.real_name,
+        distanceMeters: record.distance_meters,
+        createdAt: record.created_at,
+      },
+    });
+  });
+
+  app.post('/api/checkin/events/:code/close', (req, res) => {
+    const event = findCheckin(req.params.code);
+    if (!event) return res.status(404).json({ success: false, error: '签到不存在' });
+    const ownerId = String(req.body?.ownerId || '').trim();
+    if (!ownerId || ownerId !== event.owner_id) {
+      return res.status(403).json({ success: false, error: '只有创建者可以结束签到' });
+    }
+    event.status = 'closed';
+    res.json({ success: true, event: mapCheckin(event, true) });
   });
 
   // Vite middleware for development

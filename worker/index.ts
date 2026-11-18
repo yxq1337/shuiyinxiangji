@@ -11,6 +11,15 @@ import { cors } from 'hono/cors';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { generateOrderId, validateBase64Image, orderTitle } from './orders';
 import { notifyAdminNewOrder, notifyUserOrderApproved, notifyUserOrderRejected } from './email';
+import {
+  evaluateSign,
+  normalizeCheckinCode,
+  parseAddress,
+  parseLatLng,
+  parseRadius,
+  parseTitle,
+  randomCheckinCode,
+} from '../shared/checkin';
 
 type Bindings = {
   DB: D1Database;
@@ -589,6 +598,239 @@ app.post('/api/admin/community/:id/reject', async (c) => {
     .bind(reason, id)
     .run();
   return c.json({ success: true });
+});
+
+// ==================== 扫描签到 ====================
+
+let checkinSchemaReady: Promise<void> | null = null;
+
+function ensureCheckinSchema(db: D1Database) {
+  if (!checkinSchemaReady) {
+    checkinSchemaReady = (async () => {
+      await db.prepare(`CREATE TABLE IF NOT EXISTS checkin_events (
+        id TEXT PRIMARY KEY,
+        code TEXT UNIQUE NOT NULL,
+        title TEXT NOT NULL,
+        address TEXT NOT NULL DEFAULT '',
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        radius_meters INTEGER NOT NULL,
+        owner_id TEXT NOT NULL,
+        owner_phone TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'open',
+        created_at TEXT NOT NULL
+      )`).run();
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_checkin_events_owner ON checkin_events(owner_id)').run();
+      await db.prepare(`CREATE TABLE IF NOT EXISTS checkin_records (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        real_name TEXT NOT NULL,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        distance_meters INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      )`).run();
+      await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_checkin_records_name ON checkin_records(event_id, real_name)').run();
+    })().catch((err) => {
+      checkinSchemaReady = null;
+      throw err;
+    });
+  }
+  return checkinSchemaReady;
+}
+
+function mapCheckinRow(row: Record<string, unknown>, count: number, withCenter: boolean) {
+  return {
+    code: row.code,
+    title: row.title,
+    address: row.address || '',
+    radiusMeters: Number(row.radius_meters),
+    status: row.status,
+    count,
+    ...(withCenter
+      ? {
+          latitude: Number(row.latitude),
+          longitude: Number(row.longitude),
+          createdAt: row.created_at,
+        }
+      : {}),
+  };
+}
+
+app.post('/api/checkin/events', async (c) => {
+  const db = c.env.DB;
+  await ensureCheckinSchema(db);
+  const body = await c.req.json().catch(() => ({}));
+  const title = parseTitle(body.title);
+  const center = parseLatLng(body.latitude, body.longitude);
+  const radius = parseRadius(body.radiusMeters);
+  const ownerId = String(body.ownerId || '').trim();
+  if (!title) return c.json({ success: false, error: '请填写 1-40 字的签到名称' }, 400);
+  if (!center) return c.json({ success: false, error: '请先定位签到区域' }, 400);
+  if (!radius) return c.json({ success: false, error: '签到半径需在 50 米到 5 公里之间' }, 400);
+  if (!ownerId) return c.json({ success: false, error: '请先登录' }, 400);
+
+  let code = randomCheckinCode();
+  for (let i = 0; i < 8; i++) {
+    const taken = await db.prepare('SELECT id FROM checkin_events WHERE code = ?').bind(code).first();
+    if (!taken) break;
+    code = randomCheckinCode(i === 7 ? 8 : 6);
+  }
+
+  const id = 'ce' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const now = new Date().toISOString();
+  await db.prepare(
+    `INSERT INTO checkin_events (id, code, title, address, latitude, longitude, radius_meters, owner_id, owner_phone, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)`
+  ).bind(id, code, title, parseAddress(body.address), center.latitude, center.longitude, radius, ownerId, String(body.ownerPhone || '').slice(0, 20), now).run();
+
+  return c.json({
+    success: true,
+    event: {
+      code,
+      title,
+      address: parseAddress(body.address),
+      radiusMeters: radius,
+      status: 'open',
+      count: 0,
+      latitude: center.latitude,
+      longitude: center.longitude,
+      createdAt: now,
+    },
+  });
+});
+
+app.get('/api/checkin/mine', async (c) => {
+  const db = c.env.DB;
+  await ensureCheckinSchema(db);
+  const ownerId = String(c.req.query('ownerId') || '').trim();
+  if (!ownerId) return c.json({ success: false, error: '缺少创建者' }, 400);
+  const result = await db.prepare(
+    `SELECT e.*, (SELECT COUNT(*) FROM checkin_records r WHERE r.event_id = e.id) AS total
+     FROM checkin_events e WHERE e.owner_id = ? ORDER BY e.created_at DESC`
+  ).bind(ownerId).all();
+  const events = (result.results || []).map((row) => mapCheckinRow(row, Number(row.total || 0), true));
+  return c.json({ success: true, events });
+});
+
+app.get('/api/checkin/events/:code/roster', async (c) => {
+  const db = c.env.DB;
+  await ensureCheckinSchema(db);
+  const code = normalizeCheckinCode(c.req.param('code'));
+  const row = await db.prepare('SELECT * FROM checkin_events WHERE code = ?').bind(code).first();
+  if (!row) return c.json({ success: false, error: '签到不存在' }, 404);
+  const ownerId = String(c.req.query('ownerId') || '').trim();
+  if (!ownerId || ownerId !== row.owner_id) {
+    return c.json({ success: false, error: '只有创建者可以查看签到人员' }, 403);
+  }
+  const people = await db.prepare(
+    'SELECT real_name, distance_meters, created_at FROM checkin_records WHERE event_id = ? ORDER BY created_at ASC'
+  ).bind(row.id).all();
+  const records = (people.results || []).map((item) => ({
+    realName: item.real_name,
+    distanceMeters: Number(item.distance_meters),
+    createdAt: item.created_at,
+  }));
+  return c.json({ success: true, event: mapCheckinRow(row, records.length, true), records });
+});
+
+app.get('/api/checkin/events/:code', async (c) => {
+  const db = c.env.DB;
+  await ensureCheckinSchema(db);
+  const code = normalizeCheckinCode(c.req.param('code'));
+  const row = await db.prepare(
+    `SELECT e.*, (SELECT COUNT(*) FROM checkin_records r WHERE r.event_id = e.id) AS total
+     FROM checkin_events e WHERE e.code = ?`
+  ).bind(code).first();
+  if (!row) return c.json({ success: false, error: '签到不存在' }, 404);
+  return c.json({ success: true, event: mapCheckinRow(row, Number(row.total || 0), false) });
+});
+
+app.post('/api/checkin/events/:code/sign', async (c) => {
+  const db = c.env.DB;
+  await ensureCheckinSchema(db);
+  const code = normalizeCheckinCode(c.req.param('code'));
+  const row = await db.prepare('SELECT * FROM checkin_events WHERE code = ?').bind(code).first();
+  if (!row) return c.json({ success: false, error: '签到不存在' }, 404);
+  const body = await c.req.json().catch(() => ({}));
+  const decision = evaluateSign({
+    eventStatus: String(row.status),
+    centerLat: Number(row.latitude),
+    centerLng: Number(row.longitude),
+    radiusMeters: Number(row.radius_meters),
+    realName: body.realName,
+    latitude: body.latitude,
+    longitude: body.longitude,
+    accuracy: body.accuracy,
+  });
+  if (decision.ok === false) {
+    return c.json({
+      success: false,
+      error: decision.error,
+      distanceMeters: decision.distanceMeters,
+      radiusMeters: decision.radiusMeters,
+    }, decision.status);
+  }
+
+  const existing = await db.prepare(
+    'SELECT real_name, distance_meters, created_at FROM checkin_records WHERE event_id = ? AND real_name = ?'
+  ).bind(row.id, decision.realName).first();
+  if (existing) {
+    return c.json({
+      success: true,
+      already: true,
+      record: {
+        realName: existing.real_name,
+        distanceMeters: Number(existing.distance_meters),
+        createdAt: existing.created_at,
+      },
+    });
+  }
+
+  const id = 'cr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const now = new Date().toISOString();
+  try {
+    await db.prepare(
+      `INSERT INTO checkin_records (id, event_id, real_name, latitude, longitude, distance_meters, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).bind(id, row.id, decision.realName, decision.latitude, decision.longitude, decision.distanceMeters, now).run();
+  } catch {
+    const again = await db.prepare(
+      'SELECT real_name, distance_meters, created_at FROM checkin_records WHERE event_id = ? AND real_name = ?'
+    ).bind(row.id, decision.realName).first();
+    if (again) {
+      return c.json({
+        success: true,
+        already: true,
+        record: {
+          realName: again.real_name,
+          distanceMeters: Number(again.distance_meters),
+          createdAt: again.created_at,
+        },
+      });
+    }
+    return c.json({ success: false, error: '签到保存失败' }, 500);
+  }
+
+  return c.json({
+    success: true,
+    record: { realName: decision.realName, distanceMeters: decision.distanceMeters, createdAt: now },
+  });
+});
+
+app.post('/api/checkin/events/:code/close', async (c) => {
+  const db = c.env.DB;
+  await ensureCheckinSchema(db);
+  const code = normalizeCheckinCode(c.req.param('code'));
+  const row = await db.prepare('SELECT * FROM checkin_events WHERE code = ?').bind(code).first();
+  if (!row) return c.json({ success: false, error: '签到不存在' }, 404);
+  const body = await c.req.json().catch(() => ({}));
+  const ownerId = String(body.ownerId || '').trim();
+  if (!ownerId || ownerId !== row.owner_id) {
+    return c.json({ success: false, error: '只有创建者可以结束签到' }, 403);
+  }
+  await db.prepare("UPDATE checkin_events SET status = 'closed' WHERE id = ?").bind(row.id).run();
+  return c.json({ success: true, event: mapCheckinRow({ ...row, status: 'closed' }, Number(row.total || 0), true) });
 });
 
 // ==================== 管理后台 API ====================
