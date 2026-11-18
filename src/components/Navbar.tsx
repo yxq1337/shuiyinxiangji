@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Camera, User, Crown, Home, Grid3X3, MessageCircle } from 'lucide-react';
+import { Camera, User, Crown, Grid3X3, MessageCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Navbar() {
@@ -36,10 +36,6 @@ export default function Navbar() {
               <span className="font-semibold text-lg tracking-lux text-ink">YaoBox</span>
             </Link>
             <div className="hidden md:flex items-center space-x-0.5">
-              <Link to="/" className={itemCls(isActive('/'))}>
-                <Home className="w-4 h-4" strokeWidth={1.75} />
-                首页
-              </Link>
               <Link to="/camera" className={itemCls(isActive('/camera'))}>
                 <Camera className="w-4 h-4" strokeWidth={1.75} />
                 水印相机

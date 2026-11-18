@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Grid3X3, Users, User } from 'lucide-react';
+import { Grid3X3, Users, User } from 'lucide-react';
 
 /**
  * 顶部标签导航：首页 / 工具 / 嘉兴骑手 / 我的
@@ -11,8 +11,13 @@ export default function BottomNav() {
   const location = useLocation();
 
   const tabs = [
-    { key: 'home', label: '首页', to: '/', icon: Home, match: (p: string) => p === '/' },
-    { key: 'tools', label: '工具', to: '/tools', icon: Grid3X3, match: (p: string) => p.startsWith('/tool') || p === '/camera' },
+    {
+      key: 'tools',
+      label: '工具',
+      to: '/tools',
+      icon: Grid3X3,
+      match: (p: string) => p === '/' || p === '/tools' || p.startsWith('/tool') || p === '/camera',
+    },
     { key: 'community', label: '嘉兴骑手', to: '/community', icon: Users, match: (p: string) => p.startsWith('/community') },
     { key: 'my', label: '我的', to: '/my', icon: User, match: (p: string) => p === '/my' || p.startsWith('/my') },
   ];

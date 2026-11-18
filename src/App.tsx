@@ -4,7 +4,6 @@ import { AuthProvider } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import BottomNav from './components/BottomNav';
-import Home from './pages/Home';
 import WatermarkApp from './pages/WatermarkApp';
 import OtherTools from './pages/OtherTools';
 import Login from './pages/Login';
@@ -32,7 +31,7 @@ function AppShell() {
       {!bare && <Navbar />}
       <main className={`flex-1 flex flex-col ${bare ? '' : 'pt-14 md:pt-0'}`}>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<OtherTools />} />
           <Route path="/camera" element={<WatermarkApp />} />
           <Route path="/tools" element={<OtherTools />} />
           <Route path="/tool/checkin" element={<CheckinManage />} />
