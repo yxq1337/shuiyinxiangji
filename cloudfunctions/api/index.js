@@ -338,6 +338,87 @@ async function placeOutboundCall(cfg, number, script) {
   return aliyunRpc(cfg, cfg.aliyunAction, params);
 }
 
+// ==================== 地理编码（水印相机自动获取地址） ====================
+
+// WGS-84 → GCJ-02（国测局坐标），浏览器 GPS 坐标与高德坐标系之间的偏移纠正
+function wgs84ToGcj02(lat, lng) {
+  const PI = Math.PI;
+  const A = 6378245.0;
+  const EE = 0.00669342162296594623;
+  const outOfChina = (lat_, lng_) => lng_ < 72.004 || lng_ > 137.8347 || lat_ < 0.8293 || lat_ > 55.8271;
+
+  const transformLat = (x, y) => {
+    let ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+    ret += ((20.0 * Math.sin(6.0 * x * PI) + 20.0 * Math.sin(2.0 * x * PI)) * 2.0) / 3.0;
+    ret += ((20.0 * Math.sin(y * PI) + 40.0 * Math.sin((y / 3.0) * PI)) * 2.0) / 3.0;
+    ret += ((160.0 * Math.sin((y / 12.0) * PI) + 320 * Math.sin((y * PI) / 30.0)) * 2.0) / 3.0;
+    return ret;
+  };
+  const transformLng = (x, y) => {
+    let ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+    ret += ((20.0 * Math.sin(6.0 * x * PI) + 20.0 * Math.sin(2.0 * x * PI)) * 2.0) / 3.0;
+    ret += ((20.0 * Math.sin(x * PI) + 40.0 * Math.sin((x / 3.0) * PI)) * 2.0) / 3.0;
+    ret += ((150.0 * Math.sin((x / 12.0) * PI) + 300.0 * Math.sin((x / 30.0) * PI)) * 2.0) / 3.0;
+    return ret;
+  };
+
+  if (outOfChina(lat, lng)) return { lat, lng };
+
+  let dLat = transformLat(lng - 105.0, lat - 35.0);
+  let dLng = transformLng(lng - 105.0, lat - 35.0);
+  const radLat = (lat / 180.0) * PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - EE * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / (((A * (1 - EE)) / (magic * sqrtMagic)) * PI);
+  dLng = (dLng * 180.0) / ((A / sqrtMagic) * Math.cos(radLat) * PI);
+  return { lat: lat + dLat, lng: lng + dLng };
+}
+
+// 高德逆地址解析（需要 AMAP_KEY；Web 服务 Key 在 lbs.amap.com 免费申请）
+async function amapReverse(lat, lng) {
+  const key = process.env.AMAP_KEY || process.env.AMAP_WEB_KEY || '';
+  if (!key) return null;
+  const gcj = wgs84ToGcj02(lat, lng);
+  const url =
+    `https://restapi.amap.com/v3/geocode/regeo?key=${encodeURIComponent(key)}` +
+    `&location=${gcj.lng.toFixed(6)},${gcj.lat.toFixed(6)}&extensions=all`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (data.status !== '1' || !data.regeocode) {
+    throw new Error(`高德逆地址解析失败：${data.info || '未知错误'}`);
+  }
+  const r = data.regeocode;
+  const c = r.addressComponent || {};
+  let address = typeof r.formatted_address === 'string' ? r.formatted_address : '';
+  // 去掉省级前缀，更接近水印风格（嘉兴市南湖区建设街道XX）
+  if (typeof c.province === 'string' && c.province && address.startsWith(c.province)) {
+    address = address.slice(c.province.length);
+  }
+  return { address, source: 'amap', components: c };
+}
+
+// OpenStreetMap 逆地址解析（免费无 Key，作为 AMAP_KEY 未配置时的兜底）
+async function osmReverse(lat, lng) {
+  const url =
+    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}` +
+    `&zoom=17&accept-language=zh-CN&addressdetails=1`;
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'YaoBox-Watermark/1.0 (watermark camera address lookup)',
+      'Accept-Language': 'zh-CN',
+    },
+  });
+  if (!res.ok) throw new Error(`OSM 逆地址解析失败（HTTP ${res.status}）`);
+  const data = await res.json();
+  const a = data.address || {};
+  const parts = [a.state, a.city, a.city_district || a.county, a.suburb || a.town, a.neighbourhood || a.road]
+    .filter((p, i, arr) => typeof p === 'string' && p && arr.indexOf(p) === i);
+  const address = parts.length ? parts.join('') : typeof data.display_name === 'string' ? data.display_name : '';
+  if (!address) throw new Error('OSM 未返回地址信息');
+  return { address, source: 'osm', components: a };
+}
+
 exports.main = async (event, context) => {
   console.log('=== RAW EVENT ===', JSON.stringify(event, null, 2));
 
@@ -1265,6 +1346,34 @@ exports.main = async (event, context) => {
         rejectReason: b.reason || '',
       });
       return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
+    }
+
+    // ==================== 地理编码：逆地址解析 ====================
+    // 水印相机「自动获取地址」：前端传 GPS 坐标，服务端解析为中文地址
+    if (httpMethod === 'GET' && path === '/geo/reverse') {
+      const q = { ...(event.queryStringParameters || {}), ...(event.query || {}) };
+      const lat = parseFloat(q.latitude);
+      const lng = parseFloat(q.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+        return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: '缺少或非法的经纬度参数' }) };
+      }
+      try {
+        let result = await amapReverse(lat, lng);
+        if (!result) {
+          result = await osmReverse(lat, lng);
+        }
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ success: true, data: { address: result.address, source: result.source } }),
+        };
+      } catch (err) {
+        return {
+          statusCode: 502,
+          headers,
+          body: JSON.stringify({ success: false, error: err.message || '地址解析失败' }),
+        };
+      }
     }
 
     // ==================== AI 电话外呼 ====================

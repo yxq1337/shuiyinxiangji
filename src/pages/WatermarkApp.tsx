@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Download, Image as ImageIcon, Crown, Lock, Unlock, RefreshCw, X, Smartphone } from 'lucide-react';
+import { Upload, Download, Image as ImageIcon, Crown, Lock, Unlock, RefreshCw, X, Smartphone, MapPin, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { apiGet } from '../lib/api';
 
 export default function WatermarkApp() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -18,6 +19,50 @@ export default function WatermarkApp() {
   const [temperature, setTemperature] = useState('20°C');
   const [location, setLocation] = useState('嘉兴市南湖区建设街道·南杨新村');
   const [securityCode, setSecurityCode] = useState('KDRDCUU93S444');
+  const [locating, setLocating] = useState(false);
+  const [locationMsg, setLocationMsg] = useState<string | null>(null);
+
+  // 自动获取当前地址：浏览器定位 → 服务端逆地址解析
+  const autoLocateAddress = () => {
+    if (locating) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocationMsg('当前浏览器不支持定位功能');
+      return;
+    }
+    setLocating(true);
+    setLocationMsg('正在获取定位…');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const res = await apiGet<{ success: boolean; data?: { address: string }; error?: string }>(
+            `/geo/reverse?latitude=${latitude}&longitude=${longitude}`
+          );
+          if (res.success && res.data?.address) {
+            setLocation(res.data.address);
+            setLocationMsg(null);
+          } else {
+            setLocationMsg(res.error || '地址解析失败，请手动填写');
+          }
+        } catch {
+          setLocationMsg('定位成功但地址解析失败，请手动填写');
+        } finally {
+          setLocating(false);
+        }
+      },
+      (err) => {
+        setLocating(false);
+        setLocationMsg(
+          err.code === err.PERMISSION_DENIED
+            ? '定位权限被拒绝，请在浏览器设置中允许位置权限'
+            : err.code === err.TIMEOUT
+              ? '定位超时，请到信号较好的地方重试'
+              : '无法获取位置信息，请手动填写'
+        );
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+    );
+  };
 
   // 获取当前时间和日期
   const getCurrentDateTime = () => {
@@ -527,13 +572,32 @@ export default function WatermarkApp() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">详细地址</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-gray-600">详细地址</label>
+                  <button
+                    onClick={autoLocateAddress}
+                    disabled={locating}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors text-xs disabled:opacity-60"
+                  >
+                    {locating ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <MapPin className="w-3 h-3" />
+                    )}
+                    {locating ? '定位中…' : '自动获取'}
+                  </button>
+                </div>
                 <textarea
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   rows={2}
                   className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none text-sm"
                 />
+                {locationMsg && (
+                  <p className={`text-[11px] mt-1 ${locating ? 'text-blue-500' : 'text-amber-600'}`}>
+                    {locationMsg}
+                  </p>
+                )}
               </div>
 
               <div>

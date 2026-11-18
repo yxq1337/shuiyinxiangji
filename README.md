@@ -93,6 +93,14 @@ shuiyinxiangji/
 | GET | `/api/admin/orders/pending-count` | 待审核数 |
 | POST | `/api/admin/orders/:id/approve` | 审核通过 |
 | POST | `/api/admin/orders/:id/reject` | 审核拒绝 |
+| GET | `/api/geo/reverse?latitude=&longitude=` | 经纬度逆解析为中文地址（水印相机「自动获取」） |
+
+## 地址自动定位
+
+水印相机「详细地址」旁的「自动获取」按钮：浏览器定位 → 云函数 `/geo/reverse` 逆地址解析。
+
+- 配置 `AMAP_KEY`（高德 Web 服务 Key，[lbs.amap.com](https://lbs.amap.com/) 免费申请）后走高德，地址精度最好，且服务端自动做 WGS-84 → GCJ-02 坐标纠偏；
+- 未配置 `AMAP_KEY` 时自动兜底 OpenStreetMap Nominatim（免费无 Key，精度一般）。
 
 ## 查看 AI Studio
 
