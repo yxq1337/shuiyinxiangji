@@ -141,7 +141,8 @@ export default function TTSPage() {
       }
 
       const data = await res.json() as Record<string, unknown>;
-      const rid = data?.reference_id || data?.model_id || data?._id || data?.id || '';
+      const raw = data?.reference_id || data?.model_id || data?._id || data?.id;
+      const rid = typeof raw === 'string' ? raw : raw != null ? String(raw) : '';
       if (rid) {
         setReferenceId(rid);
         setCloneSuccess(true);
