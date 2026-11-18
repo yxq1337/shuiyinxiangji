@@ -1,4 +1,4 @@
-/** 扫描签到的区域与姓名规则。本地服务和 Workers 共用，云函数里有一份相同判断。 */
+/** 晨会签到的区域与姓名规则。本地服务和 Workers 共用，云函数里有一份相同判断。 */
 
 export const CHECKIN_GPS_TOLERANCE_M = 20;
 export const CHECKIN_MIN_RADIUS_M = 50;

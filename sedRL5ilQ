@@ -1,0 +1,336 @@
+import express from "express";
+import { createServer as createViteServer } from "vite";
+import path from "path";
+import {
+  evaluateSign,
+  normalizeCheckinCode,
+  parseAddress,
+  parseLatLng,
+  parseRadius,
+  parseTitle,
+  randomCheckinCode,
+} from "./shared/checkin";
+
+// 本地内存存储
+interface Payment {
+  id: string;
+  order_id: string;
+  provider: string;
+  type: string;
+  amount: number;
+  timestamp: string;
+  status: string;
+  phone: string;
+  user_email?: string | null;
+  raw_notify?: string | null;
+  proof_uploaded_at?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  reject_reason?: string | null;
+  paid_at?: string | null;
+}
+
+interface User {
+  id: string;
+  phone: string;
+  is_vip: number;
+  vip_expires_at?: string | null;
+  created_at: string;
+}
+
+let payments: Payment[] = [];
+let users: User[] = [
+  { id: 'demo1', phone: '13800138000', is_vip: 0, created_at: new Date(Date.now() - 86400000).toISOString() },
+  { id: 'demo2', phone: '13900139000', is_vip: 1, vip_expires_at: new Date(Date.now() + 30 * 86400000).toISOString(), created_at: new Date(Date.now() - 3600000).toISOString() }
+];
+
+let appSettings = {
+  singlePrice: 1.99,
+  monthlyPrice: 9.90,
+  yearlyPrice: 19.90,
+  permanentPrice: 29.90,
+  paymentAccount: 'admin@example.com',
+  alipayQrCode: '',
+  wechatQrCode: '',
+  wechat_qr_url: '',
+  admin_email: '',
+  resend_api_key: ''
+};
+
+// 社区信息（内存存储）
+interface CommunityListing {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  city: string;
+  area: string;
+  price: number;
+  contact: string;
+  extra: any;
+  user_id: string;
+  user_phone: string;
+  status: 'pending' | 'approved' | 'rejected' | 'offline';
+  reject_reason?: string;
+  view_count: number;
+  contact_reveal_count: number;
+  report_count: number;
+  created_at: string;
+  approved_at?: string;
+  expires_at?: string;
+}
+
+interface CommunityReport {
+  id: string;
+  listing_id: string;
+  reason: string;
+  reporter_id: string;
+  reporter_phone: string;
+  created_at: string;
+}
+
+const COMMUNITY_EXPIRE_DAYS = 15;
+
+interface CheckinEvent {
+  id: string;
+  code: string;
+  title: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
+  owner_id: string;
+  owner_phone: string;
+  status: 'open' | 'closed';
+  created_at: string;
+}
+
+interface CheckinRecord {
+  id: string;
+  event_id: string;
+  real_name: string;
+  latitude: number;
+  longitude: number;
+  distance_meters: number;
+  created_at: string;
+}
+
+let checkinEvents: CheckinEvent[] = [];
+let checkinRecords: CheckinRecord[] = [];
+
+function checkinCount(eventId: string) {
+  return checkinRecords.filter((item) => item.event_id === eventId).length;
+}
+
+function mapCheckin(event: CheckinEvent, withCenter: boolean) {
+  return {
+    code: event.code,
+    title: event.title,
+    address: event.address,
+    radiusMeters: event.radius_meters,
+    status: event.status,
+    count: checkinCount(event.id),
+    ...(withCenter
+      ? { latitude: event.latitude, longitude: event.longitude, createdAt: event.created_at }
+      : {}),
+  };
+}
+
+function mapCheckinPeople(eventId: string) {
+  return checkinRecords
+    .filter((item) => item.event_id === eventId)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((item) => ({
+      realName: item.real_name,
+      distanceMeters: item.distance_meters,
+      createdAt: item.created_at,
+    }));
+}
+
+function findCheckin(code: string) {
+  const normalized = normalizeCheckinCode(code);
+  return checkinEvents.find((item) => item.code === normalized) || null;
+}
+
+function newCheckinCode() {
+  for (let i = 0; i < 8; i++) {
+    const code = randomCheckinCode();
+    if (!checkinEvents.some((item) => item.code === code)) return code;
+  }
+  return randomCheckinCode(8);
+}
+
+let communityListings: CommunityListing[] = [
+  {
+    id: 'cl-demo-battery-1', category: 'battery', title: '星恒 48V20Ah 锂电池出租，支持换电',
+    description: '星恒品牌锂电池，48V20Ah，续航约50公里，支持全城换电，押金可退。',
+    city: '上海', area: '浦东新区', price: 299, contact: '13812341234',
+    extra: { brand: '星恒', capacity: '48V20Ah', monthlyRent: 299, deposit: 500, swappable: true, coverageArea: '浦东新区、徐汇区' },
+    user_id: 'demo', user_phone: '13800138000', status: 'approved',
+    view_count: 12, contact_reveal_count: 3, report_count: 0,
+    created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+    approved_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+    expires_at: new Date(Date.now() + 13 * 86400000).toISOString(),
+  },
+  {
+    id: 'cl-demo-job-1', category: 'job', title: '美团专送骑手招聘，单价高，单量稳',
+    description: '美团专送，站点直招，单价7元/单起，月入8000+，提供装备和电池。',
+    city: '北京', area: '朝阳区', price: 7, contact: '13956785678',
+    extra: { platform: '美团', jobType: '专送', unitPrice: 7, requirements: '会骑电动车，身体健康' },
+    user_id: 'demo', user_phone: '13900139000', status: 'approved',
+    view_count: 28, contact_reveal_count: 8, report_count: 0,
+    created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+    approved_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+    expires_at: new Date(Date.now() + 14 * 86400000).toISOString(),
+  },
+  {
+    id: 'cl-demo-usedcar-1', category: 'usedcar', title: '雅迪电动车转让，9成新，手续齐全',
+    description: '雅迪冠能M6，2023年购入，行驶3000公里，电池健康，有牌照有发票。',
+    city: '深圳', area: '南山区', price: 1800, contact: '13790129012',
+    extra: { brand: '雅迪', carAge: 2, batteryCondition: '良好', hasDocuments: true, hasPlate: true },
+    user_id: 'demo', user_phone: '13700000000', status: 'approved',
+    view_count: 45, contact_reveal_count: 12, report_count: 0,
+    created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+    approved_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+    expires_at: new Date(Date.now() + 12 * 86400000).toISOString(),
+  },
+];
+let communityReports: CommunityReport[] = [];
+
+function maskContact(contact: string): string {
+  const s = String(contact || '');
+  if (s.length <= 7) return s.replace(/./g, '*');
+  return s.slice(0, 3) + '****' + s.slice(-4);
+}
+
+function mapListingDev(l: CommunityListing, reveal = false) {
+  return {
+    id: l.id,
+    category: l.category,
+    title: l.title,
+    description: l.description,
+    city: l.city,
+    area: l.area,
+    price: l.price,
+    contact: reveal ? l.contact : maskContact(l.contact),
+    extra: l.extra,
+    userId: l.user_id,
+    userPhone: l.user_phone,
+    status: l.status,
+    rejectReason: l.reject_reason,
+    viewCount: l.view_count,
+    contactRevealCount: l.contact_reveal_count,
+    reportCount: l.report_count,
+    createdAt: l.created_at,
+    approvedAt: l.approved_at,
+    expiresAt: l.expires_at,
+  };
+}
+
+// 工具函数
+function generateOrderId(): string {
+  const now = new Date();
+  const YY = String(now.getFullYear() % 100).padStart(2, '0');
+  const MM = String(now.getMonth() + 1).padStart(2, '0');
+  const DD = String(now.getDate()).padStart(2, '0');
+  const HH = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let rand = '';
+  for (let i = 0; i < 4; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  return `SYX${YY}${MM}${DD}${HH}${mm}${rand}`;
+}
+
+function validateBase64Image(data: string): { ok: boolean; error?: string } {
+  if (!data.startsWith('data:image/')) {
+    return { ok: false, error: '仅支持图片格式' };
+  }
+  const sizeBytes = (data.length * 3) / 4;
+  if (sizeBytes > 900 * 1024) {
+    return { ok: false, error: '图片过大，请压缩后重传' };
+  }
+  return { ok: true };
+}
+
+function orderTitle(type: string): string {
+  if (type === 'monthly') return '水印相机 - 月度会员';
+  if (type === 'yearly') return '水印相机 - 年度会员';
+  if (type === 'permanent') return '水印相机 - 永久会员';
+  return '水印相机 - 单次付费';
+}
+
+function mapUser(row: any): any {
+  return {
+    id: row.id,
+    phone: row.phone,
+    isVip: !!row.is_vip,
+    vipExpiresAt: row.vip_expires_at,
+    createdAt: row.created_at,
+  };
+}
+
+async function startServer() {
+  const app = express();
+  const PORT = Number(process.env.PORT) || 3000;
+
+  app.use(express.json({ limit: '50mb' }));
+
+  // ==================== 健康检查 ====================
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok" });
+  });
+
+  // ==================== Fish Audio TTS 代理（本地开发用） ====================
+  app.post("/api/tts", async (req, res) => {
+    const apiKey = process.env.FISH_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "本地开发请设置环境变量 FISH_API_KEY" });
+    }
+
+    const { text, format, speed_factor, reference_id, model } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ error: "text 不能为空" });
+    }
+
+    const fishBody: Record<string, unknown> = {
+      text: text.trim(),
+      format: format || "mp3",
+      speed_factor: speed_factor ?? 1.0,
+    };
+    if (reference_id) fishBody.reference_id = reference_id;
+
+    try {
+      const resp = await fetch("https://api.fish.audio/v1/tts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          model: model || "s2.1-pro-free",
+        },
+        body: JSON.stringify(fishBody),
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => "");
+        return res.status(resp.status).json({
+          error: `Fish Audio 错误 (${resp.status}): ${errText.slice(0, 300)}`,
+        });
+      }
+
+      const contentType = resp.headers.get("content-type") || "audio/mpeg";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "no-store");
+      const arrayBuffer = await resp.arrayBuffer();
+      res.send(Buffer.from(arrayBuffer));
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "代理请求失败" });
+    }
+  });
+
+  // ==================== Fish Audio 声音克隆（本地开发用） ====================
+  app.post("/api/tts/clone", async (req, res) => {
+    const apiKey = process.env.FISH_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "本地开发请设置环境变量 FISH_API_KEY" });
+    }
+

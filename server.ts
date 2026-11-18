@@ -812,7 +812,7 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // ==================== 扫描签到 ====================
+  // ==================== 晨会签到 ====================
 
   app.post('/api/checkin/events', (req, res) => {
     const title = parseTitle(req.body?.title);

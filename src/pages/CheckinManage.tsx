@@ -42,7 +42,7 @@ export default function CheckinManage() {
   const [closing, setClosing] = useState(false);
 
   useEffect(() => {
-    document.title = '扫描签到';
+    document.title = '晨会签到';
   }, []);
 
   useEffect(() => {
@@ -223,7 +223,7 @@ export default function CheckinManage() {
             返回工具
           </Link>
           <div className="card p-6">
-            <h1 className="text-lg font-semibold text-ink tracking-lux">扫描签到</h1>
+            <h1 className="text-lg font-semibold text-ink tracking-lux">晨会签到</h1>
             <p className="text-sm text-ink-3 mt-2 leading-relaxed">
               登录后可以划定签到区域、生成微信扫码，并查看填写了真实姓名的到场人员。
             </p>
@@ -249,7 +249,7 @@ export default function CheckinManage() {
         <form onSubmit={create} className="card p-6 mb-5">
           <div className="flex items-center gap-2 mb-1">
             <QrCode className="w-4 h-4 text-ink-2" strokeWidth={1.75} />
-            <h1 className="text-lg font-semibold text-ink tracking-lux">扫描签到</h1>
+            <h1 className="text-lg font-semibold text-ink tracking-lux">晨会签到</h1>
           </div>
           <p className="text-sm text-ink-3 mb-5 leading-relaxed">
             先定位签到中心并设置半径。微信扫码后必须填写真实姓名，人在区域外无法签到。

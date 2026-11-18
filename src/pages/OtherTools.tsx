@@ -24,7 +24,7 @@ export default function OtherTools() {
       path: '/camera',
     },
     {
-      name: '扫描签到',
+      name: '晨会签到',
       desc: '划定区域 · 微信扫码填写真实姓名 · 统计到场人员',
       icon: <QrCode className="w-[18px] h-[18px]" strokeWidth={1.5} />,
       path: '/tool/checkin',

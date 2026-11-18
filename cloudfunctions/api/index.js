@@ -133,7 +133,7 @@ async function getUserById(id) {
   return result.data[0];
 }
 
-// ==================== 扫描签到 ====================
+// ==================== 晨会签到 ====================
 const CHECKIN_GPS_TOLERANCE_M = 20;
 
 function checkinDistanceMeters(lat1, lng1, lat2, lng2) {
@@ -1679,7 +1679,7 @@ exports.main = async (event, context) => {
       return aiRespond(404, { success: false, error: 'API not found', path });
     }
 
-    // ==================== 扫描签到 ====================
+    // ==================== 晨会签到 ====================
     const checkinJson = (statusCode, payload) => ({
       statusCode,
       headers,

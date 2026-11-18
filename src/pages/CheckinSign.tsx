@@ -94,7 +94,7 @@ export default function CheckinSign() {
       <div className="max-w-md mx-auto px-5 pt-8 pb-16">
         <div className="flex items-center gap-2 mb-8">
           <img src="/yaobox-icon.svg" alt="" className="w-7 h-7" />
-          <span className="text-sm font-medium text-ink-2">YaoBox 扫描签到</span>
+          <span className="text-sm font-medium text-ink-2">YaoBox 晨会签到</span>
         </div>
 
         {loadError && (

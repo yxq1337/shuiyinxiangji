@@ -600,7 +600,7 @@ app.post('/api/admin/community/:id/reject', async (c) => {
   return c.json({ success: true });
 });
 
-// ==================== 扫描签到 ====================
+// ==================== 晨会签到 ====================
 
 let checkinSchemaReady: Promise<void> | null = null;
 
