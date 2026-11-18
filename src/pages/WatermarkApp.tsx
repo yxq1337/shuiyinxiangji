@@ -248,8 +248,9 @@ export default function WatermarkApp() {
       const boxX = rightEndX - boxWidth;
       const boxY = line2Y - boxHeight / 2;
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.strokeStyle = 'white';
+      // 「真实可验」标签：浅灰底
+      ctx.fillStyle = 'rgba(229, 231, 235, 0.95)';
+      ctx.strokeStyle = 'rgba(229, 231, 235, 0.95)';
       ctx.lineWidth = 1.5 * scale;
       ctx.shadowColor = 'transparent';
 
@@ -270,7 +271,7 @@ export default function WatermarkApp() {
       ctx.fill();
       ctx.stroke();
 
-      // 确保文字颜色为白色
+      // 前缀「相机」保持白色带阴影
       ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
       ctx.shadowBlur = 8 * scale;
       ctx.shadowOffsetX = 2 * scale;
@@ -278,8 +279,12 @@ export default function WatermarkApp() {
       ctx.fillStyle = 'white';
       ctx.textBaseline = 'middle';
       ctx.font = `500 ${20 * scale}px sans-serif`;
-      ctx.fillText(text2, rightEndX - boxPaddingX, line2Y + 1 * scale);
       ctx.fillText('相机 ', boxX, line2Y + 1 * scale);
+
+      // 「真实可验」文字：浅灰底上用深灰字，去掉阴影
+      ctx.shadowColor = 'transparent';
+      ctx.fillStyle = '#374151';
+      ctx.fillText(text2, rightEndX - boxPaddingX, line2Y + 1 * scale);
 
       const line1Y = line2Y - 20 * scale;
       ctx.textBaseline = 'bottom';
