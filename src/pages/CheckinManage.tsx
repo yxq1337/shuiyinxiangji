@@ -35,6 +35,7 @@ export default function CheckinManage() {
   const [events, setEvents] = useState<CheckinEventSummary[]>([]);
   const [activeCode, setActiveCode] = useState<string | null>(null);
   const [people, setPeople] = useState<CheckinPerson[]>([]);
+  const [rosterReady, setRosterReady] = useState(false);
   const [rosterError, setRosterError] = useState('');
   const [qrUrl, setQrUrl] = useState('');
   const [copied, setCopied] = useState<'link' | 'list' | null>(null);
@@ -91,16 +92,21 @@ export default function CheckinManage() {
   useEffect(() => {
     if (!user || !activeCode) return;
     let stop = false;
+    setRosterReady(false);
     const load = () => {
       getCheckinRoster(activeCode, user.id)
         .then((data) => {
           if (stop) return;
           setPeople(data.records);
+          setRosterReady(true);
           setRosterError('');
           setEvents((prev) => prev.map((item) => (item.code === data.event.code ? { ...item, ...data.event } : item)));
         })
         .catch((err: unknown) => {
-          if (!stop) setRosterError(err instanceof Error ? err.message : '统计加载失败');
+          if (!stop) {
+            setRosterReady(true);
+            setRosterError(err instanceof Error ? err.message : '统计加载失败');
+          }
         });
     };
     load();
@@ -409,7 +415,9 @@ export default function CheckinManage() {
               </p>
             )}
 
-            {people.length === 0 ? (
+            {!rosterReady ? (
+              <p className="mt-4 text-sm text-ink-4">正在读取签到名单…</p>
+            ) : people.length === 0 ? (
               <p className="mt-4 text-sm text-ink-4">还没有人签到。名单会自动刷新。</p>
             ) : (
               <ul className="mt-2">
