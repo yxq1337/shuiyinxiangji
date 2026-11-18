@@ -8,6 +8,7 @@ import {
   CheckinPerson,
   closeCheckin,
   createCheckinEvent,
+  deleteCheckin,
   getCheckinRoster,
   listMyCheckins,
 } from '../lib/checkin';
@@ -40,6 +41,7 @@ export default function CheckinManage() {
   const [qrUrl, setQrUrl] = useState('');
   const [copied, setCopied] = useState<'link' | 'list' | null>(null);
   const [closing, setClosing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     document.title = '晨会签到';
@@ -209,6 +211,30 @@ export default function CheckinManage() {
       setRosterError(err instanceof Error ? err.message : '结束失败');
     } finally {
       setClosing(false);
+    }
+  };
+
+  const deleteEvent = async () => {
+    if (!user || !active || deleting) return;
+    if (
+      !window.confirm(
+        `删除「${active.title}」会同时删除 ${active.count} 条签到名单，且不可恢复。\n删除后可重新创建签到，让大家再次签到。确定删除吗？`
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    setRosterError('');
+    try {
+      await deleteCheckin(active.code, user.id);
+      const rest = events.filter((item) => item.code !== active.code);
+      setEvents(rest);
+      setPeople([]);
+      setActiveCode(rest[0]?.code || null);
+    } catch (err) {
+      setRosterError(err instanceof Error ? err.message : '删除失败');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -406,6 +432,14 @@ export default function CheckinManage() {
                     {closing ? '正在结束…' : '结束签到'}
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={deleteEvent}
+                  disabled={deleting}
+                  className="text-xs text-rose hover:opacity-80 disabled:opacity-50"
+                >
+                  {deleting ? '正在删除…' : '删除签到'}
+                </button>
               </div>
             </div>
 

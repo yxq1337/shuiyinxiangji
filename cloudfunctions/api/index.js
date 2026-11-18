@@ -1812,6 +1812,24 @@ exports.main = async (event, context) => {
       return checkinJson(200, { success: true, event: mapCheckinDoc({ ...doc, status: 'closed' }, records.length, true) });
     }
 
+    if (httpMethod === 'POST' && path.match(/^\/checkin\/events\/[^/]+\/delete$/)) {
+      const code = path.split('/')[3];
+      const doc = await findCheckinByCode(code);
+      if (!doc) return checkinJson(404, { success: false, error: '签到不存在' });
+      const ownerId = String((body || {}).ownerId || '').trim();
+      if (!ownerId || ownerId !== doc.ownerId) {
+        return checkinJson(403, { success: false, error: '只有创建者可以删除签到' });
+      }
+      // 删除活动及其全部签到记录，方便下次以同样名单重新签到
+      try {
+        await checkinRecordsCollection.where({ eventId: doc._id }).remove();
+      } catch (e) {
+        // 无记录时忽略
+      }
+      await checkinEventsCollection.doc(doc._id).remove();
+      return checkinJson(200, { success: true });
+    }
+
     // 404
     return {
       statusCode: 404,

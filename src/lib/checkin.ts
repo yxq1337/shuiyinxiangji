@@ -91,3 +91,11 @@ export async function closeCheckin(code: string, ownerId: string): Promise<void>
   );
   if (!data.success) throw new Error(data.error || '结束签到失败');
 }
+
+export async function deleteCheckin(code: string, ownerId: string): Promise<void> {
+  const data = await apiPost<{ success: boolean; error?: string }>(
+    `/api/checkin/events/${encodeURIComponent(code)}/delete`,
+    { ownerId }
+  );
+  if (!data.success) throw new Error(data.error || '删除签到失败');
+}
