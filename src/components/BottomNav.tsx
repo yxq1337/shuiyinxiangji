@@ -32,7 +32,7 @@ export default function BottomNav() {
               key={tab.key}
               to={tab.to}
               className={`relative flex flex-col items-center justify-center flex-1 h-full transition-colors duration-300 ${
-                active ? 'text-ink' : 'text-ink-3'
+                active ? 'text-[#2F63C4]' : 'text-ink-3'
               }`}
             >
               <span
