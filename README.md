@@ -100,7 +100,7 @@ shuiyinxiangji/
 水印相机「详细地址」旁的「自动获取」按钮：浏览器定位 → 云函数 `/geo/reverse` 逆地址解析。
 
 - 配置 `AMAP_KEY`（高德 Web 服务 Key，[lbs.amap.com](https://lbs.amap.com/) 免费申请）后走高德，地址精度最好，且服务端自动做 WGS-84 → GCJ-02 坐标纠偏；
-- 未配置 `AMAP_KEY` 时自动兜底 OpenStreetMap Nominatim（免费无 Key，精度一般）。
+- 未配置 `AMAP_KEY` 时会尝试 OpenStreetMap Nominatim 兜底，但**国内云主机通常访问不了 OSM**，实际使用请务必配置高德 Key（控制台 → 应用管理 → 创建应用 → 添加 Key → 服务平台选「Web服务」）。
 
 ## 查看 AI Studio
 

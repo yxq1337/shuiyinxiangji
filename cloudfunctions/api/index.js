@@ -1358,15 +1358,33 @@ exports.main = async (event, context) => {
         return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: '缺少或非法的经纬度参数' }) };
       }
       try {
-        let result = await amapReverse(lat, lng);
-        if (!result) {
-          result = await osmReverse(lat, lng);
+        const hasAmapKey = Boolean(process.env.AMAP_KEY || process.env.AMAP_WEB_KEY);
+        if (hasAmapKey) {
+          const result = await amapReverse(lat, lng);
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({ success: true, data: { address: result.address, source: result.source } }),
+          };
         }
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ success: true, data: { address: result.address, source: result.source } }),
-        };
+        try {
+          const result = await osmReverse(lat, lng);
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({ success: true, data: { address: result.address, source: result.source } }),
+          };
+        } catch (osmErr) {
+          // 国内云主机通常访问不了 OSM，此时必须配置高德 Key
+          return {
+            statusCode: 503,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              error: '地址服务不可用：请在云函数环境变量配置 AMAP_KEY（高德 Web 服务 Key，lbs.amap.com 免费申请）',
+            }),
+          };
+        }
       } catch (err) {
         return {
           statusCode: 502,
