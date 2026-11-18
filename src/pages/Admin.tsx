@@ -509,7 +509,23 @@ export default function Admin() {
             ) : (
               pendingListings.map((l) => {
                 const meta = getCategoryMeta(l.category);
-                const e = l.extra || {};
+                // 分类专属字段的展示视图：各分类字段取并集，统一按可选读取
+                const e = (l.extra || {}) as {
+                  brand?: string;
+                  capacity?: string;
+                  monthlyRent?: number;
+                  deposit?: number;
+                  swappable?: boolean;
+                  coverageArea?: string;
+                  platform?: string;
+                  jobType?: string;
+                  unitPrice?: number;
+                  requirements?: string;
+                  carAge?: number;
+                  batteryCondition?: string;
+                  hasDocuments?: boolean;
+                  hasPlate?: boolean;
+                };
                 return (
                   <div key={l.id} className="bg-white rounded-xl border border-gray-200 p-6">
                     <div className="flex items-start justify-between gap-4 mb-3">

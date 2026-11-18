@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Camera, Volume2, ScanText, ArrowUpRight, Pencil, PhoneCall, QrCode } from 'lucide-react';
+import { Camera, Volume2, ScanText, ArrowUpRight, PhoneCall, QrCode } from 'lucide-react';
 
 interface ToolEntry {
   name: string;
@@ -48,14 +48,6 @@ export default function OtherTools() {
       icon: <ScanText className="w-[18px] h-[18px]" strokeWidth={1.5} />,
       path: '/tool/quark-scan',
       tint: { tile: 'bg-[#FDF1E6] border-[#F8E3CF] text-[#C2762F]', hover: 'hover:border-[#F2D4B6]' },
-    },
-    {
-      name: '截图标注',
-      desc: '上传截图 · 自由加文字/图片 · 导出 PNG/JPG',
-      icon: <Pencil className="w-[18px] h-[18px]" strokeWidth={1.5} />,
-      path: '/tool/annotate',
-      isNew: true,
-      tint: { tile: 'bg-[#E9F5EE] border-[#D5EBDD] text-[#3F8A5F]', hover: 'hover:border-[#C4E3CF]' },
     },
     {
       name: 'AI 电话外呼',
