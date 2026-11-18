@@ -152,7 +152,7 @@ export default function Login() {
 
         <div className="mt-6 text-center">
           <Link to="/" className="text-sm text-gray-500 hover:text-gray-700">
-            返回首页
+            返回工具
           </Link>
         </div>
 

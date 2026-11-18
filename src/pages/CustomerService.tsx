@@ -19,7 +19,7 @@ export default function CustomerService() {
       <div className="max-w-md mx-auto px-4 py-6">
         <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-6">
           <ArrowLeft className="w-4 h-4" />
-          返回首页
+          返回工具
         </Link>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 text-center">

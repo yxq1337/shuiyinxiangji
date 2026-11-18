@@ -71,14 +71,6 @@ export default function OtherTools() {
   return (
     <div className="flex-1">
       <div className="max-w-5xl mx-auto px-5 py-8">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1.5 text-sm text-ink-3 hover:text-ink mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
-          返回首页
-        </Link>
-
         {/* 可用工具 */}
         <div className="card p-6 mb-5">
           <h1 className="text-lg font-semibold text-ink mb-5 tracking-lux">全部工具</h1>
