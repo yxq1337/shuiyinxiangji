@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Wrench, ArrowLeft, Sparkles, Camera, Volume2, ScanText, ArrowUpRight, Pencil, PhoneCall, QrCode } from 'lucide-react';
+import { Camera, Volume2, ScanText, ArrowUpRight, Pencil, PhoneCall, QrCode } from 'lucide-react';
 
 interface ToolEntry {
   name: string;
@@ -59,15 +59,6 @@ export default function OtherTools() {
     },
   ];
 
-  const comingSoonTools = [
-    { name: '图片压缩', desc: '无损压缩，减小体积' },
-    { name: '证件照换底', desc: '一键更换背景色' },
-    { name: '图片转文字', desc: 'OCR文字识别' },
-    { name: '图片增强', desc: 'AI修复老照片' },
-    { name: '格式转换', desc: 'JPG/PNG/WebP互转' },
-    { name: '尺寸调整', desc: '批量调整图片大小' },
-  ];
-
   return (
     <div className="flex-1">
       <div className="max-w-5xl mx-auto px-5 py-8">
@@ -120,25 +111,6 @@ export default function OtherTools() {
                 </button>
               );
             })}
-          </div>
-        </div>
-
-        {/* 敬请期待 */}
-        <div className="card p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <Wrench className="w-4 h-4 text-ink-3" strokeWidth={1.75} />
-            <h2 className="text-sm font-medium text-ink tracking-lux">更多工具开发中</h2>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5">
-            {comingSoonTools.map((tool) => (
-              <div key={tool.name} className="p-4 rounded-xl border border-line">
-                <div className="flex items-center gap-2 mb-1">
-                  <Sparkles className="w-3.5 h-3.5 text-ink-4" strokeWidth={1.75} />
-                  <span className="text-sm font-medium text-ink-2">{tool.name}</span>
-                </div>
-                <p className="text-xs text-ink-4">{tool.desc}</p>
-              </div>
-            ))}
           </div>
         </div>
       </div>
