@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Camera, Volume2, ScanText, ArrowUpRight, Pencil, PhoneCall, QrCode } from 'lucide-react';
+import { Camera, Volume2, ScanText, ArrowUpRight, Pencil, PhoneCall, QrCode, GalleryHorizontal } from 'lucide-react';
 
 interface ToolEntry {
   name: string;
@@ -64,6 +64,14 @@ export default function OtherTools() {
       path: '/tool/ai-call',
       isNew: true,
       tint: { tile: 'bg-[#FBECEA] border-[#F6DAD6] text-[#B85C4E]', hover: 'hover:border-[#F0C9C3]' },
+    },
+    {
+      name: 'Gallery Heading',
+      desc: '十二色板环绕标题 · 悬停环绕动效',
+      icon: <GalleryHorizontal className="w-[18px] h-[18px]" strokeWidth={1.5} />,
+      path: '/tool/gallery-heading',
+      isNew: true,
+      tint: { tile: 'bg-[#EEF0FB] border-[#DDE2F7] text-[#4F5FD0]', hover: 'hover:border-[#CBD3F1]' },
     },
   ];
 

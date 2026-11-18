@@ -16,6 +16,7 @@ import TTSPage from './pages/TTSPage';
 import QuarkScanPage from './pages/QuarkScanPage';
 import ScreenshotAnnotate from './pages/ScreenshotAnnotate';
 import AICallPage from './pages/AICallPage';
+import GalleryHeadingPage from './pages/GalleryHeadingPage';
 import Community from './pages/Community';
 import PublishListing from './pages/PublishListing';
 import ListingDetail from './pages/ListingDetail';
@@ -44,6 +45,7 @@ function AppShell() {
           <Route path="/tool/quark-scan" element={<QuarkScanPage />} />
           <Route path="/tool/annotate" element={<ScreenshotAnnotate />} />
           <Route path="/tool/ai-call" element={<AICallPage />} />
+          <Route path="/tool/gallery-heading" element={<GalleryHeadingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/my" element={<UserCenter />} />
           <Route path="/pricing" element={<Pricing />} />
